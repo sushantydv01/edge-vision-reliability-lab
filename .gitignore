@@ -1,0 +1,86 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDEs & editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Experiment outputs, data caches, and heavy checkpoints
+# (Directory structure is tracked via .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+models/*
+!models/.gitkeep
+
+artifacts/*
+!artifacts/.gitkeep
+
+reports/figures/*
+!reports/figures/.gitkeep
+
+reports/experiment_results/*
+!reports/experiment_results/.gitkeep
+
+# Logs and tracker outputs
+*.log
+runs/
+wandb/
