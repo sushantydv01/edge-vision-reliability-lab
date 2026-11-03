@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edge-vision-reliability-lab"
+version = "0.1.0"
+description = "A reproducible experimental platform for investigating how model compression affects computer vision reliability under realistic image corruptions."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch",
+    "torchvision",
+    "numpy",
+    "scipy",
+    "pandas",
+    "Pillow",
+    "PyYAML",
+    "tqdm",
+    "matplotlib",
+    "plotly",
+    "pytest",
+    "psutil",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

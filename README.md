@@ -69,5 +69,19 @@ edge-vision-reliability-lab/
 
 ## Getting Started
 
-*Note: Environment initialization and dependency installation instructions will be established in Milestone 0.*
-The project requires Python 3.12 (installed via Homebrew at `/opt/homebrew/bin/python3.12`).
+1. **Prerequisites**:
+   - Python 3.12 (installed at `/opt/homebrew/bin/python3.12`)
+   - Apple Silicon Mac (M-series, e.g., M3)
+
+2. **Setup Virtual Environment & Install Dependencies**:
+   ```bash
+   /opt/homebrew/bin/python3.12 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements-lock.txt
+   ```
+
+3. **Run Environment & Hardware Verification**:
+   ```bash
+   python scripts/verify_env.py
+   ```
+

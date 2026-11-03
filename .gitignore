@@ -40,6 +40,10 @@ htmlcov/
 .tox/
 .nox/
 
+# Profiling & temporary outputs
+*.prof
+*.pstats
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
@@ -60,27 +64,24 @@ htmlcov/
 *.swp
 *.swo
 
-# Experiment outputs, data caches, and heavy checkpoints
-# (Directory structure is tracked via .gitkeep)
+# Datasets (raw and processed data should not be committed)
 data/raw/*
 !data/raw/.gitkeep
-
 data/processed/*
 !data/processed/.gitkeep
 
+# Model weights and serialized checkpoints (heavy binaries ignored)
 models/*
 !models/.gitkeep
 
+# Large temporary generated artifacts and cache dumps
 artifacts/*
 !artifacts/.gitkeep
 
-reports/figures/*
-!reports/figures/.gitkeep
-
-reports/experiment_results/*
-!reports/experiment_results/.gitkeep
-
-# Logs and tracker outputs
+# Logs and tracking directories
 *.log
 runs/
 wandb/
+
+# Note: reports/figures and reports/experiment_results (CSV/JSON/figures)
+# are explicitly tracked to maintain reproducibility and report history.
