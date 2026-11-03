@@ -1,0 +1,41 @@
+{
+  "dataset": "cifar10",
+  "total_samples": 50000,
+  "train_size": 45000,
+  "val_size": 5000,
+  "seed": 42,
+  "algorithm": "torch.randperm_v1",
+  "pytorch_version": "2.15.0",
+  "train_indices_checksum": "535ea538f21e52b3d8621e39954191fac567a5eb5ea3ea139927060a54f14061",
+  "val_indices_checksum": "91ce796cc26bdf152044c8d47be0b76aec4ea6c427ad14ab69f7df6e95920e11",
+  "sample_verification": {
+    "first_5_train_indices": [
+      37542,
+      44491,
+      216,
+      43688,
+      41558
+    ],
+    "last_5_train_indices": [
+      48419,
+      11671,
+      28610,
+      2410,
+      12721
+    ],
+    "first_5_val_indices": [
+      17408,
+      40845,
+      3378,
+      22188,
+      44921
+    ],
+    "last_5_val_indices": [
+      18719,
+      22458,
+      40730,
+      25847,
+      33082
+    ]
+  }
+}

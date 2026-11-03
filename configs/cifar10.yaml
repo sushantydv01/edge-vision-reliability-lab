@@ -1,0 +1,26 @@
+dataset:
+  name: cifar10
+  raw_dir: data/raw
+  download: true
+  num_classes: 10
+
+split:
+  seed: 42
+  train_size: 45000
+  val_size: 5000
+  manifest_path: configs/cifar10_split_manifest.json
+
+normalization:
+  mean: [0.4914, 0.4822, 0.4465]
+  std: [0.2470, 0.2435, 0.2616]
+
+augmentation:
+  enabled: false
+  random_crop_padding: 4
+  random_horizontal_flip: true
+
+dataloader:
+  batch_size: 64
+  num_workers: 0
+  pin_memory: false
+  shuffle_train: true
