@@ -27,6 +27,7 @@ As of November 4, 2026, the project has completed its foundational data, model e
 3. **Milestone 2, Task 2.1 (Model Architectures)**: CIFAR-10 adaptations of ResNet-18 (11.17M params) and MobileNetV3-Small (1.53M params), dynamic model factory registry, and analytical parameter memory calculators.
 4. **Milestone 2, Task 2.2 (FP32 Training Engine)**: Production-grade training engine supporting sample-weighted loss aggregation, atomic checkpointing, strict test-set isolation, PRNG state capture (including DataLoader generator states), hardware-synchronized metrics logging, and empirical verification via CPU/MPS smoke tests and a 5-epoch convergence pilot.
 5. **Milestone 2, Task 2.3A (Clean Evaluation Infrastructure & Baseline Readiness)**: Standalone evaluation infrastructure supporting strict state loading, unaugmented transforms, top-1 accuracy, per-class counts/accuracy, 10x10 confusion matrix, mathematical consistency assertions, and atomic evaluation report export (`evaluate_checkpoints.py`).
+6. **Milestone 2, Task 2.3B (Full 100-Epoch Controlled Baseline Training & Test Evaluation)**: Completed full 100-epoch baseline training for both architectures on Apple Silicon MPS (seed 42). Verified clean test-set top-1 accuracy on 10,000 held-out samples: ResNet-18 reached **94.78%** (Peak Val Acc: 95.50%), and MobileNetV3-Small reached **86.51%** (Peak Val Acc: 86.86%). All training histories, confusion matrices, and learning-curve plots generated and independently audited.
 
 ---
 
@@ -205,6 +206,42 @@ Conducted across the full 45,000 training images and 5,000 validation images usi
 2. **Throughput Disparity**: MobileNetV3-Small is dramatically faster per epoch on Apple Silicon MPS (~27–39s vs. ~97–103s for ResNet-18), sustaining throughputs of 1,200–1,700 samples/sec.
 3. **Training Dynamics under Shared SGD Recipe**: ResNet-18 reached 75.36% validation accuracy in 4 epochs, whereas MobileNetV3-Small reached 60.82% after 5 epochs. While one hypothesis is that depthwise separable convolutions are sensitive to the chosen weight decay ($5\times 10^{-4}$) or benefit more from adaptive optimizers (e.g. AdamW) with warmup, 5 epochs of pilot training are insufficient to make definitive convergence claims. Controlled baseline comparison (Track 1) strictly mandates keeping the exact same optimizer, learning rate, momentum, and schedule across both models to establish a rigorously paired baseline before any architecture-specific tuning.
 
+### 5.3 Full 100-Epoch Controlled Baseline Experiments (Task 2.3B Audit)
+Executed sequentially on Apple Silicon MPS with seed 42 under the approved controlled baseline recipe:
+
+```text
++-----------------------------------+--------------------+--------------------------+
+| Metric                            | resnet18_cifar     | mobilenet_v3_small_cifar |
++-----------------------------------+--------------------+--------------------------+
+| Total Parameters                  | 11,173,962         | 1,528,106 (7.31x fewer)  |
+| Theoretical FP32 Weights          | 44.70 MB           | 6.11 MB                  |
+| Serialized Checkpoint Size (Disk) | 89.51 MB           | 12.42 MB                 |
+| Total Completed Epochs            | 100 / 100          | 100 / 100                |
+| Total Wall-Clock Training Time    | 2.64 hours         | 0.76 hours (3.49x faster)|
+| Mean Epoch Duration               | 94.82s             | 27.10s                   |
+| Best Validation Top-1 Accuracy    | 95.50% (Epoch 97)  | 86.86% (Epoch 98)        |
+| Best Validation Loss              | 0.1814 (Epoch 98)  | 0.3649 (Epoch 98)        |
+| Final Training Accuracy (Ep 100)  | 99.96%             | 89.42%                   |
+| Final Validation Accuracy (Ep 100)| 95.42%             | 86.66%                   |
+| Held-Out Clean Test Top-1 Accuracy| 94.78% (9,478/10k) | 86.51% (8,651/10k)       |
+| Held-Out Clean Test Loss          | 0.2003             | 0.3896                   |
+| Training -> Validation Gap        | 4.54%              | 2.76%                    |
+| Validation -> Test Gap            | 0.72%              | 0.35%                    |
++-----------------------------------+--------------------+--------------------------+
+```
+
+#### Analytical Observations from Baseline Audit
+1. **Late-Stage Stabilization**: Loss and accuracy curves for both models exhibited plateauing and stabilization beyond Epoch 80 as the cosine learning rate decayed below $10^{-3}$ towards $\eta_{\min} = 10^{-4}$.
+2. **Generalization Gaps & Overfitting Observations**:
+   - **Training-to-Validation Gap**: ResNet-18 showed a training-to-validation gap of $4.54\%$ ($99.96\%$ train acc vs. $95.42\%$ val acc at Ep 100), reflecting extensive memorization of the training set. MobileNetV3-Small showed a narrower training-to-validation gap of $2.76\%$ ($89.42\%$ train acc vs. $86.66\%$ val acc).
+   - **Late-Stage Trajectories**: MobileNetV3-Small's learning curves showed no obvious late-stage divergence; validation loss decreased alongside training loss through Epoch 98 before stabilizing. However, absence of overfitting cannot be claimed conclusively based on the low validation-to-test gap alone, as training set fitting was also bounded by architecture capacity and optimizer dynamics.
+   - **Validation-to-Test Performance Difference**: Validation-to-test differences were small for both models ($0.72\%$ for ResNet-18, $95.50\% \to 94.78\%$; $0.35\%$ for MobileNetV3-Small, $86.86\% \to 86.51\%$), confirming consistent partition behavior.
+3. **Per-Class Vulnerability**: Test confusion matrix analysis revealed that both architectures achieved their highest accuracy on rigid transportation objects (>91% test accuracy on `automobile`, `ship`, `truck`), while suffering their steepest degradation on fine-textured animal categories, with feline-canine confusion (`cat` vs `dog`) representing the primary failure mode (12.4% error for MobileNetV3-Small on cats).
+4. **Methodological Caveats**:
+   - Single seed (42): Statistically conclusive claims require multi-seed trials.
+   - Low resolution ($32\times 32$): Receptive field dynamics on CIFAR-10 do not directly extrapolate to high-resolution edge vision streams without empirical verification.
+   - MobileNetV3 optimizer hypothesis: MobileNet's lower accuracy under SGD remains an unverified hypothesis regarding weight decay and adaptive optimization dynamics.
+
 ---
 
 ## 6. Testing & Quality Assurance Audit
@@ -326,8 +363,8 @@ flowchart TD
     M1["Milestone 1: Data Pipeline (DONE)"] --> M2_1["Task 2.1: Model Architectures (DONE)"]
     M2_1 --> M2_2["Task 2.2: Training Engine (DONE)"]
     M2_2 --> M2_3A["Task 2.3A: Clean Evaluation Infrastructure (DONE)"]
-    M2_3A --> M2_3B["Task 2.3B: Full Baseline Training (NEXT)"]
-    M2_3B --> M1_3["Milestone 1, Task 3: Corruption Suite"]
+    M2_3A --> M2_3B["Task 2.3B: Full Baseline Training (DONE)"]
+    M2_3B --> M1_3["Milestone 1, Task 3: Corruption Suite (NEXT)"]
     M1_3 --> M3["Milestone 3: Compression & Quantization (INT8 PTQ)"]
     M3 --> M4["Milestone 4: Benchmarking Engine (Latency/Memory)"]
     M4 --> M5["Milestone 5: Pareto Analysis & Reporting"]
@@ -338,17 +375,19 @@ flowchart TD
 - **Deliverables**:
   - `src/edge_vision/evaluation/` (`evaluator.py`, `metrics.py`, `__init__.py`)
   - `scripts/evaluate_checkpoints.py`
-  - `tests/test_evaluation.py` (11 new tests, 78 total passing)
+  - `tests/test_evaluation.py` (11 tests)
 
-### Milestone 2, Task 2.3B: Baseline Full Training & Test Evaluation (Next Step)
+### Milestone 2, Task 2.3B: Baseline Full Training & Test Evaluation (Completed)
 - **Objective**: Execute full 100-epoch training runs for both architectures under the controlled recipe and evaluate frozen candidate checkpoints against the held-out test partition.
 - **Deliverables**:
-  - `experiments/baseline_resnet18_cifar/best_checkpoint.pt`
-  - `experiments/baseline_mobilenet_v3_small_cifar/best_checkpoint.pt`
-  - Clean test-set evaluation reports (`reports/experiment_results/eval_test_resnet18.json`, `eval_test_mobilenet.json`) generated by `scripts/evaluate_checkpoints.py`.
-- **Estimated Run Time**: ~2.8 hours (ResNet-18) + ~58 minutes (MobileNetV3-Small) sequentially on Apple Silicon MPS.
+  - `experiments/exp_baseline_resnet18_seed42/checkpoints/best_checkpoint.pt` (Val Acc: 95.50%, Test Acc: 94.78%)
+  - `experiments/exp_baseline_mobilenet_v3_small_seed42/checkpoints/best_checkpoint.pt` (Val Acc: 86.86%, Test Acc: 86.51%)
+  - Clean test-set evaluation reports (`eval_test_resnet18.json`, `eval_test_mobilenet.json`)
+  - Learning-curve plots in `reports/figures/` (loss, accuracy, LR, architecture comparison, per-class breakdown)
+  - Independent numerical audit script `scripts/audit_baseline_results.py`
+- **Measured Run Time**: 2.64 hours (ResNet-18) + 0.76 hours (MobileNetV3-Small) = 3.40 hours on Apple Silicon MPS.
 
-### Milestone 1, Task 3: Synthetic Image Corruption Suite
+### Milestone 1, Task 3: Synthetic Image Corruption Suite (Immediate Next Step)
 - **Objective**: Implement synthetic image corruption perturbations following the CIFAR-10-C taxonomy (Gaussian noise, blur, weather, digital distortions across severity levels 1–5).
 - **Deliverables**: `src/edge_vision/data/corruptions.py`, unit tests validating perturbation determinism, and test set corruption generator.
 
@@ -369,9 +408,10 @@ flowchart TD
 
 - **Configured Remote**: `https://github.com/sushantydv01/edge-vision-reliability-lab.git`
 - **Active Branch**: `main`
-- **Verified Local Commits Pushed**:
-  1. `8561842`: `Implement CIFAR-10 model architecture layer` (Task 2.1)
-  2. `f9fba30`: `Implement reproducible FP32 training engine` (Task 2.2)
-- **Synchronization Status**: `main` is completely synchronized with `origin/main` (`Your branch is up to date with 'origin/main'`).
-- **Working Tree State**: Clean (`git status` reports `nothing to commit, working tree clean`).
-- **Repository Hygiene**: Zero `.pt` binary checkpoints, zero `.venv` files, zero raw dataset archives, and zero trailing whitespace defects committed.
+- **Verified Commits on `main`**:
+  1. `8561842`: `Implement CIFAR-10 model architecture layer` (Task 2.1, pushed to origin)
+  2. `f9fba30`: `Implement reproducible FP32 training engine` (Task 2.2, pushed to origin)
+  3. `f8f9ee4`: `Implement standalone checkpoint evaluation` (Task 2.3A, local commit, unpushed)
+- **Synchronization Status**: Local `main` is ahead of `origin/main` by 1 commit (`f8f9ee4`). No unauthorized pushes have been made.
+- **Working Tree State**: Modified documentation and trainer progress logging, along with untracked baseline training scripts, learning curve figures, and test evaluation reports prepared for Task 2.3B finalization pending user review and approval.
+- **Repository Hygiene**: Zero `.pt` binary checkpoints, zero `.venv` files, zero raw dataset archives, and zero trailing whitespace defects tracked.

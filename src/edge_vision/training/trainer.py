@@ -155,6 +155,7 @@ class Trainer:
         self,
         epochs: Optional[int] = None,
         start_epoch: int = 1,
+        verbose: bool = False,
     ) -> Dict[str, Any]:
         """
         Orchestrates training, validation, scheduling, checkpointing, and experiment logging.
@@ -162,6 +163,7 @@ class Trainer:
         Parameters:
             epochs: Total epochs to train (defaults to config.epochs).
             start_epoch: Epoch to start at (defaults to 1; >1 when resuming).
+            verbose: If True, prints epoch progress to stdout.
 
         Returns:
             Dictionary containing run results and metrics summary.
@@ -210,6 +212,20 @@ class Trainer:
                     train_metrics=train_metrics,
                     val_metrics=val_metrics,
                     learning_rate=current_lr,
+                )
+
+            if verbose:
+                is_best = (self.checkpoint_manager is not None and self.checkpoint_manager.best_epoch == epoch)
+                best_marker = " [*BEST*]" if is_best else ""
+                total_duration = train_metrics.duration_seconds + val_metrics.duration_seconds
+                print(
+                    f"Epoch [{epoch:03d}/{total_epochs:03d}]: "
+                    f"Train Loss: {train_metrics.loss:.4f} (Acc: {train_metrics.accuracy:.2%}) | "
+                    f"Val Loss: {val_metrics.loss:.4f} (Acc: {val_metrics.accuracy:.2%}) | "
+                    f"LR: {current_lr:.5e} | "
+                    f"Duration: {total_duration:.1f}s "
+                    f"({train_metrics.samples_per_second:.1f} samp/s){best_marker}",
+                    flush=True,
                 )
 
         # Write finalized experiment summary

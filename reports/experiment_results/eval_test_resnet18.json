@@ -1,0 +1,196 @@
+{
+  "checkpoint": {
+    "best_epoch": 97,
+    "best_metric_value": 0.955,
+    "epoch": 97,
+    "filename": "best_checkpoint.pt",
+    "path": "experiments/exp_baseline_resnet18_seed42/checkpoints/best_checkpoint.pt"
+  },
+  "evaluation_dataset": {
+    "data_config_path": "configs/cifar10.yaml",
+    "name": "cifar10",
+    "sample_count": 10000,
+    "split": "test"
+  },
+  "evaluation_environment": {
+    "device": "mps",
+    "device_requested": "mps",
+    "machine": "arm64",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "python_version": "3.12.16 (main, Oct 25 2026, 18:24:37) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "timestamp": "2026-11-04T12:28:05.275079+00:00",
+    "torch_version": "2.15.0",
+    "torchvision_version": "0.29.2"
+  },
+  "metrics": {
+    "accuracy": 0.9478,
+    "confusion_matrix": [
+      [
+        950,
+        2,
+        12,
+        5,
+        2,
+        1,
+        2,
+        0,
+        21,
+        5
+      ],
+      [
+        1,
+        978,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        3,
+        17
+      ],
+      [
+        12,
+        0,
+        929,
+        12,
+        13,
+        10,
+        18,
+        3,
+        2,
+        1
+      ],
+      [
+        4,
+        1,
+        16,
+        888,
+        12,
+        55,
+        12,
+        2,
+        4,
+        6
+      ],
+      [
+        2,
+        0,
+        11,
+        15,
+        962,
+        4,
+        6,
+        0,
+        0,
+        0
+      ],
+      [
+        4,
+        2,
+        9,
+        54,
+        9,
+        911,
+        4,
+        6,
+        0,
+        1
+      ],
+      [
+        4,
+        0,
+        11,
+        9,
+        2,
+        1,
+        972,
+        1,
+        0,
+        0
+      ],
+      [
+        3,
+        0,
+        6,
+        11,
+        11,
+        14,
+        1,
+        952,
+        2,
+        0
+      ],
+      [
+        8,
+        3,
+        2,
+        3,
+        0,
+        0,
+        0,
+        0,
+        974,
+        10
+      ],
+      [
+        5,
+        25,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        6,
+        962
+      ]
+    ],
+    "correct_predictions": 9478,
+    "loss": 0.200271,
+    "per_class_accuracy": {
+      "airplane": 0.95,
+      "automobile": 0.978,
+      "bird": 0.929,
+      "cat": 0.888,
+      "deer": 0.962,
+      "dog": 0.911,
+      "frog": 0.972,
+      "horse": 0.952,
+      "ship": 0.974,
+      "truck": 0.962
+    },
+    "per_class_correct": {
+      "airplane": 950,
+      "automobile": 978,
+      "bird": 929,
+      "cat": 888,
+      "deer": 962,
+      "dog": 911,
+      "frog": 972,
+      "horse": 952,
+      "ship": 974,
+      "truck": 962
+    },
+    "per_class_counts": {
+      "airplane": 1000,
+      "automobile": 1000,
+      "bird": 1000,
+      "cat": 1000,
+      "deer": 1000,
+      "dog": 1000,
+      "frog": 1000,
+      "horse": 1000,
+      "ship": 1000,
+      "truck": 1000
+    },
+    "total_samples": 10000
+  },
+  "model_architecture": "resnet18_cifar",
+  "run_id": "exp_baseline_resnet18_seed42",
+  "training_metadata": {
+    "dataset_manifest_checksum": null,
+    "seed": 42,
+    "training_timestamp": "2026-11-04T11:37:55.718677+00:00"
+  }
+}

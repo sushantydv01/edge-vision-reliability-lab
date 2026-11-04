@@ -36,7 +36,7 @@ When deploying models to resource-constrained edge environments, compression tec
 | :--- | :--- | :--- |
 | **0** | **Environment & Project Baseline** | Workspace verification, Git tracking, Python 3.12 virtual environment setup, strict pinning. |
 | **1** | **Data & Corruption Pipeline** | CIFAR-10 data loader with clean baseline and standardized synthetic image corruption suite. |
-| **2** | **Model Baselines (FP32)** | Modular model definitions for MobileNetV3-Small and ResNet18; training engine and clean evaluation infrastructure. |
+| **2** | **Model Baselines (FP32)** | Modular model definitions for MobileNetV3-Small and ResNet18; 100-epoch baseline training and clean test evaluation (Completed). |
 | **3** | **Compression & Quantization** | FP16 conversion and INT8 Post-Training Quantization (PTQ) pipelines with calibration routines. |
 | **4** | **Benchmarking Engine** | Deterministic profiling harness measuring latency, memory usage, throughput, and robustness metrics. |
 | **5** | **Analysis & Reporting** | Comparative evaluation reports, Pareto frontier visualizations (efficiency vs reliability), and experimental findings.
@@ -115,6 +115,28 @@ edge-vision-reliability-lab/
 
 ---
 
+## Baseline Model Performance (100-Epoch FP32 Experiments)
+
+Both architectures were trained from scratch for 100 epochs under an identical controlled baseline recipe (`configs/train_baseline.yaml`: SGD, lr 0.05, momentum 0.9, weight decay $5\times 10^{-4}$, CosineAnnealingLR, batch size 64, seed 42) on Apple Silicon MPS:
+
+| Architecture | Experiment ID | Parameters | Checkpoint Size (Disk) | Peak Val Acc (Epoch) | Min Val Loss (Epoch) | Test Acc (10,000 samples) | Test Loss | MPS Wall Time |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **ResNet-18** (`resnet18_cifar`) | `exp_baseline_resnet18_seed42` | 11,173,962 | 89.51 MB (85.36 MiB) | **95.50%** (Ep 97) | 0.1814 (Ep 98) | **94.78%** | 0.2003 | 2.64 hours |
+| **MobileNetV3-Small** (`mobilenet_v3_small_cifar`) | `exp_baseline_mobilenet_v3_small_seed42` | 1,528,106 | 12.42 MB (11.85 MiB) | **86.86%** (Ep 98) | 0.3649 (Ep 98) | **86.51%** | 0.3896 | 0.76 hours |
+
+- **Generalization Metrics**:
+  - ResNet-18 exhibited a training-to-validation gap of 4.54% (99.96% train vs 95.42% val at Ep 100) and a validation-to-test difference of 0.72% (95.50% vs 94.78%).
+  - MobileNetV3-Small exhibited a training-to-validation gap of 2.76% (89.42% train vs 86.66% val at Ep 100) and a validation-to-test difference of 0.35% (86.86% vs 86.51%).
+- **Per-Class Dynamics**: Both networks performed highest on rigid vehicle categories (>91% test accuracy) and lowest on fine-textured animal categories, with cat/dog confusion accounting for the majority of classification errors (cats: 88.8% for ResNet-18 vs 70.4% for MobileNetV3-Small).
+- **Scope & Methodological Limitations**: Results represent an initial single random seed (seed 42) on low-resolution $32\times 32$ CIFAR-10 imagery. Full multi-seed variance will be measured in subsequent benchmarks.
+- **Learning Curves & Visualizations**: Detailed loss, accuracy, and comparison plots are available under `reports/figures/`:
+  - `baseline_resnet18_loss.png` & `baseline_resnet18_accuracy.png`
+  - `baseline_mobilenet_loss.png` & `baseline_mobilenet_accuracy.png`
+  - `baseline_learning_rate.png`
+  - `baseline_validation_comparison.png` & `baseline_per_class_test_accuracy.png`
+
+---
+
 ## Training Infrastructure & Reproducibility
 
 - **Trainer Interface & Test-Set Isolation**:
@@ -128,7 +150,7 @@ edge-vision-reliability-lab/
 - **Atomic Checkpoint Management**:
   - Checkpoints are saved to process-unique temporary files (`.tmp.<pid>`) and atomically replaced via `os.replace` to prevent corrupted checkpoints upon process interruption.
   - Stores full `model.state_dict()` (including BatchNorm running statistics), optimizer state, scheduler state, RNG states, and configuration metadata.
-  - Serialized checkpoint sizes with SGD momentum: ResNet-18 is 89.49 MB; MobileNetV3-Small is 12.40 MB.
+  - Serialized checkpoint sizes with SGD momentum: ResNet-18 is 89.51 MB (85.36 MiB); MobileNetV3-Small is 12.42 MB (11.85 MiB).
 - **Hardware Acceleration**:
   - Supports `cpu`, `mps`, and `auto` device selection.
   - Hardware smoke testing confirmed Apple Silicon MPS provides $1.3\times$ to $2.1\times$ faster training throughput and $6.5\times$ to $7.8\times$ faster validation throughput than CPU while using modest unified memory footprint (<300 MB process RSS).
