@@ -46,9 +46,9 @@
 - [ ] Robustness evaluation suite across corruption severities (severity 1-5).
 
 ### Milestone 2: Baseline Models (FP32)
-- [ ] Model architecture wrappers (`MobileNetV3-Small`, `ResNet18`).
-- [ ] Baseline pre-trained / trained weights management.
-- [ ] Clean baseline accuracy verification on test split.
+- [x] Model architecture adaptations and factory (`MobileNetV3-Small`, `ResNet18`) (Task 2.1).
+- [ ] Baseline training / weights management (Task 2.2).
+- [ ] Clean baseline accuracy verification on test split (Task 2.3).
 
 ### Milestone 3: Compression & Quantization
 - [ ] FP16 conversion pipeline.
@@ -116,4 +116,29 @@
 - **Automated Tests**:
   - `pytest -v`: 23 passed (16 data pipeline unit tests, 4 dataset integration tests, 3 environment smoke tests).
 - **Next Milestone Task**:
-  - Milestone 1, Task 3: Synthetic Image Corruption Suite (CIFAR-10-C style perturbations across noise, blur, weather, and digital distortions).
+  - Milestone 2, Task 2.2: Baseline Training Engine & Reproducibility Suite.
+
+---
+
+## 5. CIFAR-10 Model Architecture Layer Verification & Results (Task 2.1)
+
+- **Adapted Architectures**:
+  - `resnet18_cifar`:
+    - Replaced ImageNet 7x7 stride-2 conv with 3x3 stride-1 pad-1 conv (no bias).
+    - Replaced downsampling maxpool with `nn.Identity()`.
+    - Replaced 1000-class fc head with `nn.Linear(512, num_classes)`.
+    - Parameters: 11,173,962 (FP32 memory: 44.70 MB / 42.63 MiB).
+    - Spatial progression: 32x32 -> 32x32 (stem, layer1) -> 16x16 (layer2) -> 8x8 (layer3) -> 4x4 (layer4) -> 1x1 (avgpool).
+  - `mobilenet_v3_small_cifar`:
+    - Adjusted stem conv stride from 2 to 1 (`features[0][0].stride = (1, 1)`).
+    - Preserved all 11 inverted residual blocks and pre-pooling pointwise conv.
+    - Replaced 1000-class projection in classifier with `nn.Linear(1024, num_classes)`.
+    - Parameters: 1,528,106 (FP32 memory: 6.11 MB / 5.83 MiB).
+    - Spatial progression: 32x32 -> 32x32 (features[0]) -> 16x16 (features[1]) -> 8x8 (features[2-3]) -> 4x4 (features[4-8]) -> 2x2 (features[9-12]) -> 1x1 (avgpool).
+    - Prevents spatial collapse to 1x1 at stage 9, ensuring BatchNorm2d is stable in training mode with batch size 1 ($N \times H \times W = 4 > 1$).
+- **Model Factory & Metadata**:
+  - Factory: `get_model(name, num_classes=10)` with strict registry validation.
+  - Metadata: Exact parameter counting (`total`, `trainable`, `non_trainable`) and memory footprint calculation (`bytes`, `megabytes_decimal`, `mebibytes_binary`).
+- **Automated Verification**:
+  - 22 dedicated model unit & integration tests covering structural modifications, forward shapes across batch sizes (1, 2, 64), train/eval mode stability with $B=1$, raw logit properties, intermediate stage shape locks, exact parameter/memory metrics, factory dispatch, seed reproducibility, and Apple Silicon MPS forward execution.
+  - Full suite status: 45 passed (23 data/env tests + 22 model tests).
