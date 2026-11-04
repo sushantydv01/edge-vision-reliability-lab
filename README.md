@@ -36,7 +36,7 @@ When deploying models to resource-constrained edge environments, compression tec
 | :--- | :--- | :--- |
 | **0** | **Environment & Project Baseline** | Workspace verification, Git tracking, Python 3.12 virtual environment setup, strict pinning. |
 | **1** | **Data & Corruption Pipeline** | CIFAR-10 data loader with clean baseline and standardized synthetic image corruption suite. |
-| **2** | **Model Baselines (FP32)** | Modular model definitions for MobileNetV3-Small and ResNet18; baseline weights validation. |
+| **2** | **Model Baselines (FP32)** | Modular model definitions for MobileNetV3-Small and ResNet18; training engine and clean evaluation infrastructure. |
 | **3** | **Compression & Quantization** | FP16 conversion and INT8 Post-Training Quantization (PTQ) pipelines with calibration routines. |
 | **4** | **Benchmarking Engine** | Deterministic profiling harness measuring latency, memory usage, throughput, and robustness metrics. |
 | **5** | **Analysis & Reporting** | Comparative evaluation reports, Pareto frontier visualizations (efficiency vs reliability), and experimental findings.
@@ -132,6 +132,38 @@ edge-vision-reliability-lab/
 - **Hardware Acceleration**:
   - Supports `cpu`, `mps`, and `auto` device selection.
   - Hardware smoke testing confirmed Apple Silicon MPS provides $1.3\times$ to $2.1\times$ faster training throughput and $6.5\times$ to $7.8\times$ faster validation throughput than CPU while using modest unified memory footprint (<300 MB process RSS).
+
+---
+
+## Standalone Checkpoint Evaluation
+
+The standalone evaluation infrastructure (`src/edge_vision/evaluation/`) provides decoupled, hermetic evaluation of trained model checkpoints without requiring the training engine:
+
+- **Strict Model Reconstruction**: `load_checkpoint_for_evaluation()` automatically parses checkpoint architecture metadata and loads model weights with `strict=True`.
+- **Pure Unaugmented Transforms**: Evaluates strictly with canonical CIFAR-10 normalization, bypassing random cropping and horizontal flipping.
+- **Inference Mode & Model Freeze**: Enforces `model.eval()`, parameter gradient disabling (`requires_grad=False`), and `torch.inference_mode()`.
+- **Comprehensive Metrics**: Computes sample-weighted cross-entropy loss, top-1 accuracy, per-class counts and accuracy, and a complete $10 \times 10$ confusion matrix, enforcing mathematical consistency assertions ($\sum C = N$, $\text{trace}(C) = N_{\text{correct}}$).
+- **Atomic Serialization**: Persists evaluation results atomically to JSON via temporary files and `os.replace`.
+
+### Running Standalone Evaluation
+
+```bash
+# Evaluate a checkpoint on the validation split
+python scripts/evaluate_checkpoints.py \
+  --checkpoint experiments/exp_pilot_resnet18/checkpoints/best_checkpoint.pt \
+  --split val \
+  --device auto \
+  --batch-size 64 \
+  --output reports/experiment_results/eval_val_resnet18.json
+
+# Evaluate on the held-out test split (reserved for final benchmark evaluation)
+python scripts/evaluate_checkpoints.py \
+  --checkpoint experiments/exp_pilot_resnet18/checkpoints/best_checkpoint.pt \
+  --split test \
+  --device auto \
+  --batch-size 64 \
+  --output reports/experiment_results/eval_test_resnet18.json
+```
 
 ---
 

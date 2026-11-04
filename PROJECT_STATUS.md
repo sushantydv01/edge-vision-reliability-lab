@@ -48,7 +48,8 @@
 ### Milestone 2: Baseline Models (FP32)
 - [x] Model architecture adaptations and factory (`MobileNetV3-Small`, `ResNet18`) (Task 2.1).
 - [x] Baseline training infrastructure, reproducibility, and checkpointing (Task 2.2).
-- [ ] Clean baseline accuracy verification on test split (Task 2.3).
+- [x] Standalone clean evaluation infrastructure, audit corrections, and baseline configuration readiness (Task 2.3A).
+- [ ] Controlled full baseline training (100 epochs) and clean test-set evaluation (Task 2.3B).
 
 ### Milestone 3: Compression & Quantization
 - [ ] FP16 conversion pipeline.
@@ -175,3 +176,61 @@
 - **Automated Verification**:
   - `pytest -v`: 67 passed out of 67 tests (23 data/env + 22 models + 22 training engine tests).
   - Validated bitwise epoch-boundary resume equivalence, sample-weighted loss aggregation, and test-set isolation.
+
+---
+
+## 7. Standalone Clean Evaluation Infrastructure & Full-Training Readiness (Task 2.3A)
+
+- **Evaluation Architecture & Modules Implemented**:
+  - `edge_vision.evaluation.metrics`:
+    - `EvaluationMetrics`: Structured dataclass storing loss, overall top-1 accuracy, per-class counts, per-class accuracy, and a $10 \times 10$ confusion matrix.
+    - `EvaluationTracker`: Online sample-weighted cross-entropy loss aggregator, multi-class prediction accumulator, and confusion matrix builder.
+    - Mathematical assertions: Enforces $\sum_{i,j} C_{i,j} = N$ and $\text{trace}(C) = N_{\text{correct}}$.
+  - `edge_vision.evaluation.evaluator`:
+    - `resolve_evaluation_device()`: Hardware selector prioritizing Apple Silicon MPS over CPU.
+    - `load_checkpoint_for_evaluation()`: Reconstructs model architecture from checkpoint metadata or explicit parameters, verifies model type, and enforces strict weight loading (`strict=True`).
+    - `get_evaluation_dataloader()`: Builds an isolated DataLoader using strictly unaugmented transforms (canonical normalization only, no random crops or flips).
+    - `evaluate_model()`: Runs evaluation loop under `model.eval()`, frozen weights (`requires_grad=False`), and `torch.inference_mode()`.
+    - `save_evaluation_report()`: Atomically serializes evaluation results to JSON (`.tmp.<pid>` renamed via `os.replace`).
+  - `scripts/evaluate_checkpoints.py`:
+    - Standalone CLI runner supporting `--checkpoint`, `--split` (`test` or `val`), `--device` (`auto`, `cpu`, `mps`), `--batch-size`, and `--output`.
+    - Produces both formatted CLI summary tables and structured JSON reports.
+- **Automated Verification**:
+  - 11 dedicated evaluation tests in `tests/test_evaluation.py` covering:
+    - Empty tracker edge cases.
+    - Multi-batch sample-weighted loss and confusion matrix mathematical invariants.
+    - Strict checkpoint state dict loading and missing/mismatched key rejection.
+    - Eval mode and parameter freeze enforcement.
+    - Bitwise CPU vs MPS prediction equivalence on synthetic batches.
+    - Atomic JSON serialization and schema validity.
+    - Test-set isolation (refusal to evaluate unapproved partitions).
+  - Full project test suite: **78 passed out of 78 tests** in ~13.5 seconds.
+- **Audit & Dossier Corrections**:
+  - Completed technical audit corrections in `reports/PROJECT_TECHNICAL_REVIEW.md`:
+    1. Zero-copy semantics: Clarified that `TransformedSubset` shares the underlying 153.6 MB NumPy array, while PIL conversions and tensor transforms allocate dynamically per sample.
+    2. PIL bottleneck: Labeled single-threaded PIL overhead as an unverified hypothesis pending formal cProfile/PyTorch profiler traces.
+    3. MobileNet convergence: Clarified that 5 epochs are insufficient to determine asymptotic convergence causes and confirmed that the controlled baseline recipe mandates identical hyperparameters.
+    4. INT8 hardware acceleration: Clarified that while PyTorch's native integer quantization backends (`fbgemm`/`qnnpack`) run in software on CPU, external runtimes (CoreML on Apple Neural Engine, ONNX Runtime, TensorRT) provide dedicated INT8 edge acceleration.
+    5. CIFAR-10-C taxonomy: Clarified the distinction between official pre-generated CIFAR-10-C benchmark datasets and programmatic in-repo corruptions following the CIFAR-10-C taxonomy.
+    6. `src/__init__.py`: Noted as a redundant container marker, harmless for setuptools packaging.
+    7. Professional tone: Aligned documentation tone with objective, evidence-based engineering standards.
+- **Controlled Baseline Configuration Readiness**:
+  - Verified `configs/train_baseline.yaml`:
+    - SGD optimizer: lr=0.05, momentum=0.9, nesterov=false, weight_decay=0.0005.
+    - Scheduler: CosineAnnealingLR (T_max=100, eta_min=0.0001, warmup_epochs=0).
+    - Loss: CrossEntropyLoss.
+    - Augmentation: RandomCrop (size=32, padding=4), RandomHorizontalFlip (p=0.5).
+    - Dataloader: batch_size=64, num_workers=0, pin_memory=false.
+    - Checkpointing: save_best=true (by val_acc), save_latest=true.
+- **Empirical Resource & Runtime Projections for Full 100-Epoch Training**:
+  - **`resnet18_cifar`**:
+    - Measured per-epoch duration (MPS): ~100.6 seconds.
+    - Estimated 100-epoch training time: **~2.8 hours** (168 minutes).
+    - Checkpoint storage footprint: 89.49 MB per checkpoint (2 checkpoints = 178.98 MB total).
+  - **`mobilenet_v3_small_cifar`**:
+    - Measured per-epoch duration (MPS): ~34.9 seconds.
+    - Estimated 100-epoch training time: **~58 minutes**.
+    - Checkpoint storage footprint: 12.40 MB per checkpoint (2 checkpoints = 24.80 MB total).
+  - **Total Sequential Run Time**: **~3.8 hours**.
+  - **Total Disk Space Needed**: **< 250 MB**.
+  - **Execution Recommendation**: Run sequentially on Apple Silicon MPS to maintain low host memory footprint and avoid macOS unified memory swap thrashing.
