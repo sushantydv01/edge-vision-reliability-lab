@@ -47,7 +47,7 @@
 
 ### Milestone 2: Baseline Models (FP32)
 - [x] Model architecture adaptations and factory (`MobileNetV3-Small`, `ResNet18`) (Task 2.1).
-- [ ] Baseline training / weights management (Task 2.2).
+- [x] Baseline training infrastructure, reproducibility, and checkpointing (Task 2.2).
 - [ ] Clean baseline accuracy verification on test split (Task 2.3).
 
 ### Milestone 3: Compression & Quantization
@@ -116,7 +116,7 @@
 - **Automated Tests**:
   - `pytest -v`: 23 passed (16 data pipeline unit tests, 4 dataset integration tests, 3 environment smoke tests).
 - **Next Milestone Task**:
-  - Milestone 2, Task 2.2: Baseline Training Engine & Reproducibility Suite.
+  - Milestone 2, Task 2.3: Full Baseline Training & Clean Test-Set Evaluation.
 
 ---
 
@@ -141,4 +141,37 @@
   - Metadata: Exact parameter counting (`total`, `trainable`, `non_trainable`) and memory footprint calculation (`bytes`, `megabytes_decimal`, `mebibytes_binary`).
 - **Automated Verification**:
   - 22 dedicated model unit & integration tests covering structural modifications, forward shapes across batch sizes (1, 2, 64), train/eval mode stability with $B=1$, raw logit properties, intermediate stage shape locks, exact parameter/memory metrics, factory dispatch, seed reproducibility, and Apple Silicon MPS forward execution.
-  - Full suite status: 45 passed (23 data/env tests + 22 model tests).
+
+---
+
+## 6. FP32 Baseline Training Engine & Empirical Validation (Task 2.2)
+
+- **Engine Modules Implemented**:
+  - `edge_vision.training.config`: Type-safe dataclass configurations with strict validation.
+  - `edge_vision.training.seeding`: Multi-runtime PRNG seeding (`random`, `numpy`, `torch` CPU/MPS) and complete state capture/restoration including `DataLoader` generator state.
+  - `edge_vision.training.metrics`: Sample-weighted loss aggregation and top-1 accuracy accumulator (`MetricTracker`, `EpochMetrics`).
+  - `edge_vision.training.checkpoint`: Atomic checkpoint persistence (`_save_atomic`), resume validation, and `best_checkpoint.pt` / `latest_checkpoint.pt` tracking.
+  - `edge_vision.training.experiment`: Structured file-based logging (`metrics_history.csv` and `experiment_summary.json`).
+  - `edge_vision.training.data`: Training DataLoader factory enforcing training-only augmentation (RandomCrop pad=4, RandomHorizontalFlip p=0.5), unaugmented validation transform, and strict test-set isolation (never returns `test_loader`).
+  - `edge_vision.training.trainer`: Training and validation loops, `zero_grad(set_to_none=True)`, gradient clipping, scheduler stepping, accelerator synchronization, and test-set isolation assertions.
+- **Hardware Smoke Test (Pilot A)**:
+  - Verified CPU and Apple Silicon MPS execution across both models.
+  - Checkpoint file sizes with SGD momentum: ResNet-18 is 89.49 MB; MobileNetV3-Small is 12.40 MB.
+  - MPS demonstrated $1.3\times$ to $2.1\times$ faster training throughput and $6.5\times$ to $7.8\times$ faster validation throughput than CPU.
+- **5-Epoch Convergence Pilot Results (Pilot B on MPS)**:
+  - **`resnet18_cifar`**:
+    - Train Loss: `1.6564` (Ep 1) $\to$ `0.6347` (Ep 5)
+    - Train Accuracy: `39.43%` $\to$ `78.00%`
+    - Val Loss: `1.2251` $\to$ `0.7441`
+    - Val Accuracy: `55.68%` $\to$ **`75.36%`** (Peak at Epoch 4)
+    - Throughput: ~450–476 samples/second; Epoch duration: ~97–103 seconds.
+  - **`mobilenet_v3_small_cifar`**:
+    - Train Loss: `1.7123` (Ep 1) $\to$ `1.0166` (Ep 5)
+    - Train Accuracy: `35.15%` $\to$ `63.83%`
+    - Val Loss: `1.8426` $\to$ `1.0874`
+    - Val Accuracy: `30.34%` $\to$ **`60.82%`** (Peak at Epoch 5)
+    - Throughput: ~1,170–1,695 samples/second; Epoch duration: ~27–39 seconds.
+  - **Convergence Verdict**: Monotonic downward training loss progression, smooth gradient updates, no NaN/Inf occurrences, and healthy validation trajectories confirm the training loop is ready for full-schedule baseline experiments.
+- **Automated Verification**:
+  - `pytest -v`: 67 passed out of 67 tests (23 data/env + 22 models + 22 training engine tests).
+  - Validated bitwise epoch-boundary resume equivalence, sample-weighted loss aggregation, and test-set isolation.

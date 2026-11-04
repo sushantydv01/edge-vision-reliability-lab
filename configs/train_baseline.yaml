@@ -1,0 +1,40 @@
+experiment_id: exp_baseline_resnet18_seed42
+model_architecture: resnet18_cifar
+seed: 42
+device: auto
+epochs: 100
+loss_function: cross_entropy
+max_grad_norm: null
+deterministic: false
+data_config_path: configs/cifar10.yaml
+output_dir: experiments
+
+optimizer:
+  name: sgd
+  learning_rate: 0.05
+  momentum: 0.9
+  nesterov: false
+  weight_decay: 0.0005
+
+scheduler:
+  name: cosine
+  t_max: 100
+  eta_min: 0.0001
+  warmup_epochs: 0
+
+checkpoint:
+  checkpoint_dir: checkpoints
+  save_best: true
+  save_latest: true
+  metric_for_best: val_acc
+  mode: max
+
+augmentation:
+  enabled: true
+  random_crop_padding: 4
+  random_horizontal_flip: true
+
+dataloader:
+  batch_size: 64
+  num_workers: 0
+  pin_memory: false

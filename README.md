@@ -98,6 +98,43 @@ edge-vision-reliability-lab/
 
 ---
 
+## Model Architecture Specifications
+
+- **ResNet-18 CIFAR Adaptation** (`resnet18_cifar`):
+  - Canonical $7\times 7$ (stride 2) stem convolution replaced with $3\times 3$ (stride 1, padding 1, no bias) convolution to preserve $32\times 32$ spatial resolution.
+  - Initial maxpool replaced with `nn.Identity()`.
+  - Linear classification head replaced with `nn.Linear(512, num_classes)`.
+  - Parameters: 11,173,962 (FP32 parameter memory: 44.70 MB).
+- **MobileNetV3-Small CIFAR Adaptation** (`mobilenet_v3_small_cifar`):
+  - Stem convolution modified to stride 1 (`features[0][0].stride = (1, 1)`), avoiding spatial collapse to $1\times 1$ at stage 9 and preventing single-element `BatchNorm2d` training failures with batch size 1 ($N \times H \times W = 4 > 1$).
+  - All 11 inverted residual blocks, internal squeeze-and-excitation modules, and pointwise convolution are preserved.
+  - Final projection in `classifier[3]` replaced with `nn.Linear(1024, num_classes)`.
+  - Parameters: 1,528,106 (FP32 parameter memory: 6.11 MB).
+- **Model Factory & Registry**:
+  - `get_model(name, num_classes=10)` dynamically instantiates registered architectures with explicit input validation.
+
+---
+
+## Training Infrastructure & Reproducibility
+
+- **Trainer Interface & Test-Set Isolation**:
+  - `Trainer` accepts strictly `train_loader` and `val_loader`.
+  - `test_loader` is completely excluded from the training API to eliminate test-set leakage.
+  - Checkpoint selection and early stopping decisions are governed solely by validation metrics.
+- **Reproducibility & RNG State Management**:
+  - `set_seed(seed)` initializes Python `random`, NumPy, PyTorch CPU, and Apple Silicon MPS.
+  - `get_rng_states()` and `set_rng_states()` capture and restore the complete PRNG state, including the dedicated `torch.Generator` assigned to the training DataLoader.
+  - Guarantees exact bitwise reproducibility upon epoch-boundary checkpoint resume.
+- **Atomic Checkpoint Management**:
+  - Checkpoints are saved to process-unique temporary files (`.tmp.<pid>`) and atomically replaced via `os.replace` to prevent corrupted checkpoints upon process interruption.
+  - Stores full `model.state_dict()` (including BatchNorm running statistics), optimizer state, scheduler state, RNG states, and configuration metadata.
+  - Serialized checkpoint sizes with SGD momentum: ResNet-18 is 89.49 MB; MobileNetV3-Small is 12.40 MB.
+- **Hardware Acceleration**:
+  - Supports `cpu`, `mps`, and `auto` device selection.
+  - Hardware smoke testing confirmed Apple Silicon MPS provides $1.3\times$ to $2.1\times$ faster training throughput and $6.5\times$ to $7.8\times$ faster validation throughput than CPU while using modest unified memory footprint (<300 MB process RSS).
+
+---
+
 ## Data Pipeline Specifications
 
 - **Dataset**: Official CIFAR-10 (torchvision implementation, stored under `data/raw/`).
@@ -123,4 +160,3 @@ edge-vision-reliability-lab/
 - **Current Reproducibility Limitations**:
   - **PyTorch PRNG Versioning**: PyTorch does not guarantee bit-for-bit identical `torch.randperm` permutations across future major versions. Checksum verification in `get_or_create_split_indices` detects any PRNG drift and requires explicit intentional regeneration (`force_regenerate=True`).
   - **Worker Concurrency**: Determinism is strictly verified with `num_workers=0`. When multi-worker training is introduced in subsequent milestones, deterministic `worker_init_fn` seeding will be evaluated.
-

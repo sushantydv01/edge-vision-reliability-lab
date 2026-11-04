@@ -73,6 +73,11 @@ data/processed/*
 # Model weights and serialized checkpoints (heavy binaries ignored)
 models/*
 !models/.gitkeep
+*.pt
+experiments/*
+!experiments/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
 
 # Large temporary generated artifacts and cache dumps
 artifacts/*

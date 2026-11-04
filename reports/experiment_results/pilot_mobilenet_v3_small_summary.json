@@ -1,0 +1,77 @@
+{
+  "best_metrics": {
+    "best_epoch": 5,
+    "best_val_acc": 0.6082,
+    "best_val_loss": 1.087443
+  },
+  "checkpoints": {
+    "best_checkpoint": "experiments/pilot_mobilenet_v3_small_cifar/best_checkpoint.pt",
+    "latest_checkpoint": "experiments/pilot_mobilenet_v3_small_cifar/latest_checkpoint.pt"
+  },
+  "configuration": {
+    "augmentation": {
+      "enabled": true,
+      "random_crop_padding": 4,
+      "random_horizontal_flip": true
+    },
+    "checkpoint": {
+      "checkpoint_dir": "checkpoints",
+      "metric_for_best": "val_acc",
+      "mode": "max",
+      "save_best": true,
+      "save_latest": true
+    },
+    "data_config_path": "configs/cifar10.yaml",
+    "dataloader": {
+      "batch_size": 64,
+      "num_workers": 0,
+      "pin_memory": false
+    },
+    "deterministic": false,
+    "device": "mps",
+    "epochs": 5,
+    "experiment_id": "pilot_mobilenet_v3_small_cifar",
+    "loss_function": "cross_entropy",
+    "max_grad_norm": null,
+    "model_architecture": "mobilenet_v3_small_cifar",
+    "optimizer": {
+      "learning_rate": 0.05,
+      "momentum": 0.9,
+      "name": "sgd",
+      "nesterov": false,
+      "weight_decay": 0.0005
+    },
+    "output_dir": "experiments",
+    "scheduler": {
+      "eta_min": 0.0001,
+      "name": "cosine",
+      "t_max": 100,
+      "warmup_epochs": 0
+    },
+    "seed": 42
+  },
+  "dataset_manifest_checksum": null,
+  "device": "mps",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "python_version": "3.12.16 (main, Oct 25 2026, 18:24:37) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "torch_version": "2.15.0",
+    "torchvision_version": "0.29.2"
+  },
+  "experiment_id": "pilot_mobilenet_v3_small_cifar",
+  "final_metrics": {
+    "train_acc": 0.638311,
+    "train_loss": 1.01658,
+    "val_acc": 0.6082,
+    "val_loss": 1.087443
+  },
+  "model_architecture": "mobilenet_v3_small_cifar",
+  "seed": 42,
+  "status": "completed",
+  "timestamps": {
+    "end": "2026-11-04T08:25:26.906625+00:00",
+    "start": "2026-11-04T08:22:31.531607+00:00",
+    "total_duration_seconds": 175.37
+  }
+}
