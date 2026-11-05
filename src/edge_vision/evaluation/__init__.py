@@ -13,6 +13,22 @@ from edge_vision.evaluation.evaluator import (
     evaluate_model,
     save_evaluation_report,
 )
+from edge_vision.evaluation.robustness import (
+    REQUIRED_BENCHMARK_ARTIFACTS,
+    ConditionModelResult,
+    RobustnessAggregateSummary,
+    RobustnessBenchmarkResult,
+    RobustnessCondition,
+    RobustnessEvaluator,
+    check_existing_benchmark,
+    compute_accuracy_degradation,
+    compute_file_sha256,
+    compute_model_robustness_summary,
+    construct_condition_dataloader,
+    get_standard_robustness_conditions,
+    save_robustness_results,
+    validate_output_directory,
+)
 
 __all__ = [
     "EvaluationMetrics",
@@ -22,4 +38,18 @@ __all__ = [
     "get_evaluation_dataloader",
     "evaluate_model",
     "save_evaluation_report",
+    "REQUIRED_BENCHMARK_ARTIFACTS",
+    "ConditionModelResult",
+    "RobustnessAggregateSummary",
+    "RobustnessBenchmarkResult",
+    "RobustnessCondition",
+    "RobustnessEvaluator",
+    "check_existing_benchmark",
+    "compute_accuracy_degradation",
+    "compute_file_sha256",
+    "compute_model_robustness_summary",
+    "construct_condition_dataloader",
+    "get_standard_robustness_conditions",
+    "save_robustness_results",
+    "validate_output_directory",
 ]

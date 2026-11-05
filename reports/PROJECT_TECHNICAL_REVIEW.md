@@ -27,7 +27,8 @@ As of November 4, 2026, the project has completed its foundational data, model e
 3. **Milestone 2, Task 2.1 (Model Architectures)**: CIFAR-10 adaptations of ResNet-18 (11.17M params) and MobileNetV3-Small (1.53M params), dynamic model factory registry, and analytical parameter memory calculators.
 4. **Milestone 2, Task 2.2 (FP32 Training Engine)**: Production-grade training engine supporting sample-weighted loss aggregation, atomic checkpointing, strict test-set isolation, PRNG state capture (including DataLoader generator states), hardware-synchronized metrics logging, and empirical verification via CPU/MPS smoke tests and a 5-epoch convergence pilot.
 5. **Milestone 2, Task 2.3A (Clean Evaluation Infrastructure & Baseline Readiness)**: Standalone evaluation infrastructure supporting strict state loading, unaugmented transforms, top-1 accuracy, per-class counts/accuracy, 10x10 confusion matrix, mathematical consistency assertions, and atomic evaluation report export (`evaluate_checkpoints.py`).
-6. **Milestone 2, Task 2.3B (Full 100-Epoch Controlled Baseline Training & Test Evaluation)**: Completed full 100-epoch baseline training for both architectures on Apple Silicon MPS (seed 42). Verified clean test-set top-1 accuracy on 10,000 held-out samples: ResNet-18 reached **94.78%** (Peak Val Acc: 95.50%), and MobileNetV3-Small reached **86.51%** (Peak Val Acc: 86.86%). All training histories, confusion matrices, and learning-curve plots generated and independently audited.
+6. **Milestone 2, Task 2.3B (Full 100-Epoch Controlled Baseline Training & Test Evaluation)**: Completed full 100-epoch baseline training for both architectures on Apple Silicon MPS (seed 42). Verified clean test-set top-1 accuracy on 10,000 held-out samples: ResNet-18 reached **94.78%** (Peak Val Acc: 95.50%), and MobileNetV3-Small reached **86.51%** (Peak Val Acc: 86.86%). All training histories, confusion matrices, and learning-curve plots generated and independently audited (committed as `5612ac9`).
+7. **Milestone 1, Task 3 (Deterministic Synthetic Image Corruption Suite)**: Modular, memory-conscious image corruption engine in `src/edge_vision/corruptions/` implementing 6 corruption operations (Gaussian noise, Gaussian blur, motion blur, brightness darkening, contrast attenuation, JPEG compression artifacts) across 5 severity levels with SHA-256 deterministic seeding, Common Random Numbers (CRN) proportional scaling, pre-normalization execution on uint8 NumPy arrays, and a lightweight `CorruptedDataset` adapter (37 new tests, 115 total passing).
 
 ---
 
@@ -55,6 +56,7 @@ edge-vision-reliability-lab/
 ├── configs/
 │   ├── cifar10.yaml                    # Dataset parameters, split sizes, and normalization constants
 │   ├── cifar10_split_manifest.json     # Compact 795-byte split manifest with SHA-256 partition checksums
+│   ├── corruptions.yaml                # Authoritative 6-corruption 5-severity parameter specifications
 │   └── train_baseline.yaml             # Baseline training recipe (SGD, CosineAnnealing, Augmentation)
 ├── data/
 │   ├── raw/                            # CIFAR-10 binary archives (gitignored)
@@ -80,6 +82,13 @@ edge-vision-reliability-lab/
 │   ├── __init__.py                     # Root source marker (container level)
 │   └── edge_vision/
 │       ├── __init__.py                 # Core package root (__version__ = "0.1.0")
+│       ├── corruptions/                # Deterministic Synthetic Image Corruption Layer
+│       │   ├── __init__.py             # Public corruption API exports
+│       │   ├── config.py               # CorruptionSuiteConfig dataclasses and YAML parser
+│       │   ├── dataset.py              # CorruptedDataset adapter and DataLoader constructor
+│       │   ├── deterministic.py        # SHA-256 deterministic PRNG seed derivation
+│       │   ├── operations.py           # Pure uint8 image perturbation mathematical functions
+│       │   └── registry.py             # CORRUPTION_REGISTRY and dispatch orchestrator
 │       ├── data/                       # CIFAR-10 Data Pipeline Layer
 │       │   ├── __init__.py             # Data pipeline exports
 │       │   ├── config.py               # DataPipelineConfig dataclasses and YAML parser
@@ -112,7 +121,8 @@ edge-vision-reliability-lab/
     ├── test_cifar10_integration.py     # End-to-end dataset loading and isolation tests (4 tests)
     ├── test_models.py                  # Model architecture, shape tracing, and MPS tests (22 tests)
     ├── test_training.py                # Trainer, checkpointing, resume equivalence, metrics (22 tests)
-    └── test_evaluation.py              # Standalone evaluator, metrics, matrix, isolation (11 tests)
+    ├── test_evaluation.py              # Standalone evaluator, metrics, matrix, isolation (11 tests)
+    └── test_corruptions.py             # Deterministic corruption suite, seeding, CRN, monotonicity (37 tests)
 ```
 
 ---
@@ -323,10 +333,11 @@ To answer the core research question, models must be evaluated against standard 
 4. **Digital**: Contrast, Elastic Transform, Pixelate, JPEG Compression.
 Distinguishing custom synthetic implementations from the pre-generated benchmark archive ensures experimental transparency while enabling programmatic test-set evaluation without downloading multi-gigabyte monolithic arrays.
 - **Robustness Metrics**:
-  - **Mean Corruption Error (mCE)** normalized against the FP32 ResNet-18 baseline:
-    $$\text{CE}_c^M = \frac{\sum_{s=1}^5 E_{s,c}^M}{\sum_{s=1}^5 E_{s,c}^{\text{baseline}}}$$
-    $$\text{mCE}^M = \frac{1}{C} \sum_{c=1}^C \text{CE}_c^M$$
-  - **Relative Corruption Drop**: $\Delta_{\text{robustness}} = \text{Acc}_{\text{clean}} - \text{Acc}_{\text{corrupt}}$.
+  - **Mean Relative Accuracy Drop**: In this benchmark, relative degradation is measured directly as:
+    $$\text{Relative Drop} = \frac{\text{Acc}_{\text{clean}} - \text{Acc}_{\text{corrupt}}}{\text{Acc}_{\text{clean}}}$$
+    $$\text{Mean Relative Accuracy Drop} = \frac{1}{C \times S} \sum_{c, s} \frac{\text{Acc}_{\text{clean}} - \text{Acc}_{c, s}}{\text{Acc}_{\text{clean}}}$$
+    *(Note: This direct relative degradation metric is distinct from classical mean Corruption Error (mCE), which normalizes absolute error rates against an external reference model architecture).*
+  - **Absolute Accuracy Drop**: $\Delta_{\text{robustness}} = \text{Acc}_{\text{clean}} - \text{Acc}_{\text{corrupt}}$ (in percentage points).
   - **Expected Calibration Error (ECE)**: Verifying whether quantized models become overconfident in their incorrect predictions on corrupted inputs.
 
 ### 8.4 Benchmarking Methodology
@@ -387,9 +398,28 @@ flowchart TD
   - Independent numerical audit script `scripts/audit_baseline_results.py`
 - **Measured Run Time**: 2.64 hours (ResNet-18) + 0.76 hours (MobileNetV3-Small) = 3.40 hours on Apple Silicon MPS.
 
-### Milestone 1, Task 3: Synthetic Image Corruption Suite (Immediate Next Step)
-- **Objective**: Implement synthetic image corruption perturbations following the CIFAR-10-C taxonomy (Gaussian noise, blur, weather, digital distortions across severity levels 1–5).
-- **Deliverables**: `src/edge_vision/data/corruptions.py`, unit tests validating perturbation determinism, and test set corruption generator.
+### Milestone 1, Task 3: Deterministic Synthetic Image Corruption Suite (Completed)
+- **Objective**: Implement a modular, memory-conscious, deterministic image corruption engine inspired by common corruption benchmarks across 6 corruption types and 5 severity levels.
+- **Deliverables**:
+  - `configs/corruptions.yaml`
+  - `src/edge_vision/corruptions/` (`__init__.py`, `config.py`, `deterministic.py`, `operations.py`, `registry.py`, `dataset.py`)
+  - `tests/test_corruptions.py` (37 unit and integration tests)
+- **Guarantees**: SHA-256 deterministic seed derivation, Common Random Numbers (CRN) proportional scaling, non-destructive array operations, pre-normalization execution on uint8 arrays, and shared-memory `CorruptedDataset` adapter.
+
+### Milestone 1, Task 4: FP32 Robustness Evaluation Engine (Completed & Validated)
+- **Objective**: Execute a reproducible robustness evaluation benchmark measuring predictive reliability of baseline FP32 models across clean CIFAR-10 test imagery and 30 synthetic corruption conditions (6 corruptions $\times$ 5 severities, 62 evaluations, 620,000 total predictions).
+- **Deliverables**:
+  - `src/edge_vision/evaluation/robustness.py` (data structures, streaming paired-model evaluation loop, degradation metrics, atomic multi-format exporter)
+  - `scripts/run_robustness_benchmark.py` (CLI runner supporting smoke test, custom model/corruption subsets, overwrite guard, and full run execution)
+  - `scripts/generate_robustness_plots.py` (visualization generator for accuracy curves, degradation profiles, and per-corruption breakdowns)
+  - `tests/test_robustness.py` (15 unit and integration tests)
+  - Full experiment outputs: `experiments/robustness_fp32_seed42/` (`metadata.json`, `results.csv`, `results.json`, `summary.json`, `plots/`)
+- **Key Empirical Results & Scope**:
+  - ResNet-18: Clean Acc 94.78%, Mean Corrupted Acc 65.73% (-29.05 pp drop, rel 30.65%). Worst corruption: `gaussian_noise` (45.46% mean acc).
+  - MobileNetV3-Small: Clean Acc 86.51%, Mean Corrupted Acc 58.83% (-27.68 pp drop, rel 32.00%). Worst corruption: `motion_blur` (41.47% mean acc).
+  - Crossover Observation: MobileNetV3-Small achieved higher empirical accuracy than ResNet-18 on severe JPEG compression (quality 40: 73.91% vs 73.38%; quality 20: 65.45% vs 59.25%; quality 10: 50.65% vs 40.61%). The underlying causal mechanism has not been isolated experimentally and remains an open hypothesis.
+  - Experimental Limitations: Findings reflect $32\times 32$ CIFAR-10 imagery, custom synthetic corruptions (horizontal-only motion blur, darkening-only brightness), and a single evaluation seed (seed 42). They do not imply real-world physical camera degradation performance.
+- **Guarantees**: Shared-batch identical input presentation across models via synchronized batch iteration, Common Random Numbers (CRN) preserving noise field across severities, unweighted arithmetic aggregate summaries, non-negative-clipped degradation formulas, explicit condition wall-clock timing (`condition_wall_time_seconds`), pre-execution output-directory overwrite protection (`--overwrite`), and safe atomic persistence.
 
 ### Milestone 3: Compression & Quantization Engine
 - **Objective**: Implement FP16 conversion and PyTorch INT8 Post-Training Quantization (PTQ) with validation calibration.
@@ -400,7 +430,7 @@ flowchart TD
 - **Deliverables**: `src/edge_vision/benchmarking/profiler.py`, measuring mean/p95 latency and peak memory across FP32, FP16, and INT8 models.
 
 ### Milestone 5: Reliability vs. Efficiency Pareto Frontier Analysis
-- **Objective**: Aggregate clean accuracy, corruption mCE, latency, and compression ratios into Pareto frontier visualizations and publish the final portfolio analysis.
+- **Objective**: Aggregate clean accuracy, corruption robustness degradation, latency, and compression ratios into Pareto frontier visualizations and publish the final portfolio analysis.
 
 ---
 
@@ -411,7 +441,8 @@ flowchart TD
 - **Verified Commits on `main`**:
   1. `8561842`: `Implement CIFAR-10 model architecture layer` (Task 2.1, pushed to origin)
   2. `f9fba30`: `Implement reproducible FP32 training engine` (Task 2.2, pushed to origin)
-  3. `f8f9ee4`: `Implement standalone checkpoint evaluation` (Task 2.3A, local commit, unpushed)
-- **Synchronization Status**: Local `main` is ahead of `origin/main` by 1 commit (`f8f9ee4`). No unauthorized pushes have been made.
-- **Working Tree State**: Modified documentation and trainer progress logging, along with untracked baseline training scripts, learning curve figures, and test evaluation reports prepared for Task 2.3B finalization pending user review and approval.
+  3. `f8f9ee4`: `Implement standalone checkpoint evaluation` (Task 2.3A, pushed to origin)
+  4. `5612ac9`: `Finalize Task 2.3B: 100-epoch FP32 baselines, audit, and learning curves` (Task 2.3B, pushed to origin)
+- **Synchronization Status**: Local `main` is up to date with `origin/main` at `5612ac9`.
+- **Working Tree State**: Uncommitted changes for Milestone 1 Task 3 (corruption suite) and Task 4 (robustness evaluation engine). All changes are strictly preserved in the working tree without staging or committing, awaiting user review and benchmark execution approval.
 - **Repository Hygiene**: Zero `.pt` binary checkpoints, zero `.venv` files, zero raw dataset archives, and zero trailing whitespace defects tracked.

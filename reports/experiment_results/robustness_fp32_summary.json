@@ -1,0 +1,147 @@
+{
+  "metadata": {
+    "timestamp": "2026-11-05T03:42:34.631561+00:00",
+    "models": [
+      "resnet18_cifar",
+      "mobilenet_v3_small_cifar"
+    ],
+    "total_conditions": 31
+  },
+  "model_summaries": {
+    "resnet18_cifar": {
+      "clean_accuracy": 0.9478,
+      "mean_corrupted_accuracy": 0.65731,
+      "mean_accuracy_drop_pp": 29.049,
+      "relative_mCE": 0.3064887106984596,
+      "per_corruption_summary": {
+        "brightness": {
+          "mean_accuracy": 0.9065799999999999,
+          "mean_accuracy_drop_pp": 4.122000000000002,
+          "mean_relative_drop": 0.043490187803334045
+        },
+        "contrast": {
+          "mean_accuracy": 0.72062,
+          "mean_accuracy_drop_pp": 22.717999999999996,
+          "mean_relative_drop": 0.23969191812618695
+        },
+        "gaussian_blur": {
+          "mean_accuracy": 0.7111400000000001,
+          "mean_accuracy_drop_pp": 23.666000000000004,
+          "mean_relative_drop": 0.24969402827600762
+        },
+        "gaussian_noise": {
+          "mean_accuracy": 0.45456,
+          "mean_accuracy_drop_pp": 49.324,
+          "mean_relative_drop": 0.5204051487655623
+        },
+        "jpeg_compression": {
+          "mean_accuracy": 0.67826,
+          "mean_accuracy_drop_pp": 26.953999999999997,
+          "mean_relative_drop": 0.2843848913272843
+        },
+        "motion_blur": {
+          "mean_accuracy": 0.4727,
+          "mean_accuracy_drop_pp": 47.510000000000005,
+          "mean_relative_drop": 0.5012660898923823
+        }
+      },
+      "per_severity_summary": {
+        "1": {
+          "mean_accuracy": 0.8849999999999999,
+          "mean_accuracy_drop_pp": 6.280000000000001,
+          "mean_relative_drop": 0.06625870436801014
+        },
+        "2": {
+          "mean_accuracy": 0.7931166666666666,
+          "mean_accuracy_drop_pp": 15.468333333333334,
+          "mean_relative_drop": 0.16320250404445383
+        },
+        "3": {
+          "mean_accuracy": 0.6903499999999999,
+          "mean_accuracy_drop_pp": 25.745,
+          "mean_relative_drop": 0.271629035661532
+        },
+        "4": {
+          "mean_accuracy": 0.5381,
+          "mean_accuracy_drop_pp": 40.97,
+          "mean_relative_drop": 0.43226419075754374
+        },
+        "5": {
+          "mean_accuracy": 0.37998333333333334,
+          "mean_accuracy_drop_pp": 56.781666666666666,
+          "mean_relative_drop": 0.5990891186607582
+        }
+      }
+    },
+    "mobilenet_v3_small_cifar": {
+      "clean_accuracy": 0.8651,
+      "mean_corrupted_accuracy": 0.5882633333333334,
+      "mean_accuracy_drop_pp": 27.68366666666667,
+      "relative_mCE": 0.3200053943667399,
+      "per_corruption_summary": {
+        "brightness": {
+          "mean_accuracy": 0.76676,
+          "mean_accuracy_drop_pp": 9.833999999999996,
+          "mean_relative_drop": 0.11367471968558544
+        },
+        "contrast": {
+          "mean_accuracy": 0.56494,
+          "mean_accuracy_drop_pp": 30.016,
+          "mean_relative_drop": 0.34696566870881973
+        },
+        "gaussian_blur": {
+          "mean_accuracy": 0.6612199999999999,
+          "mean_accuracy_drop_pp": 20.387999999999998,
+          "mean_relative_drop": 0.23567217662697953
+        },
+        "gaussian_noise": {
+          "mean_accuracy": 0.42542,
+          "mean_accuracy_drop_pp": 43.968,
+          "mean_relative_drop": 0.5082418217547104
+        },
+        "jpeg_compression": {
+          "mean_accuracy": 0.69658,
+          "mean_accuracy_drop_pp": 16.851999999999997,
+          "mean_relative_drop": 0.19479828921511966
+        },
+        "motion_blur": {
+          "mean_accuracy": 0.41466000000000003,
+          "mean_accuracy_drop_pp": 45.044,
+          "mean_relative_drop": 0.5206796902092243
+        }
+      },
+      "per_severity_summary": {
+        "1": {
+          "mean_accuracy": 0.8001499999999999,
+          "mean_accuracy_drop_pp": 6.495,
+          "mean_relative_drop": 0.0750780256617732
+        },
+        "2": {
+          "mean_accuracy": 0.72235,
+          "mean_accuracy_drop_pp": 14.274999999999999,
+          "mean_relative_drop": 0.16500982545370474
+        },
+        "3": {
+          "mean_accuracy": 0.6132333333333334,
+          "mean_accuracy_drop_pp": 25.186666666666664,
+          "mean_relative_drop": 0.2911416791893037
+        },
+        "4": {
+          "mean_accuracy": 0.4618333333333334,
+          "mean_accuracy_drop_pp": 40.32666666666666,
+          "mean_relative_drop": 0.4661503487072785
+        },
+        "5": {
+          "mean_accuracy": 0.34375,
+          "mean_accuracy_drop_pp": 52.13499999999999,
+          "mean_relative_drop": 0.6026470928216391
+        }
+      }
+    }
+  },
+  "comparative_delta": {
+    "resnet18_cifar_vs_mobilenet_v3_small_cifar_clean_acc_diff": 0.0827,
+    "resnet18_cifar_vs_mobilenet_v3_small_cifar_mean_corrupt_acc_diff": 0.06904666666666659,
+    "resnet18_cifar_vs_mobilenet_v3_small_cifar_mean_drop_diff_pp": 1.3653333333333286
+  }
+}

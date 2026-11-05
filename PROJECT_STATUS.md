@@ -42,8 +42,8 @@
 
 ### Milestone 1: Data & Corruption Pipeline
 - [x] Clean CIFAR-10 data loader with deterministic splits and lightweight view architecture (Task 2).
-- [ ] Modular corruption pipeline (synthesizing CIFAR-10-C style perturbations: noise, blur, weather, digital) (Task 3).
-- [ ] Robustness evaluation suite across corruption severities (severity 1-5).
+- [x] Deterministic synthetic image corruption suite (Task 3): 6 corruption operations (Gaussian noise, Gaussian blur, motion blur, brightness, contrast, JPEG compression) with 5 severity levels, SHA-256 seed derivation, pure uint8 operations, registry dispatch, and lightweight CorruptedDataset adapter.
+- [x] Robustness evaluation engine across corruption severities (Task 4): Shared-batch identical tensor presentation, dual-model streaming evaluation, sample-weighted metric tracking, degradation formulas, and atomic multi-format reporting.
 
 ### Milestone 2: Baseline Models (FP32)
 - [x] Model architecture adaptations and factory (`MobileNetV3-Small`, `ResNet18`) (Task 2.1).
@@ -103,7 +103,7 @@
   - Training Partition: 45,000 samples.
   - Validation Partition: 5,000 samples.
   - Partition disjointness and completeness: 100% verified (0 overlap, 50,000 union).
-  - Compact manifest: [configs/cifar10_split_manifest.json](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/configs/cifar10_split_manifest.json) (795 bytes) recording metadata, algorithm (`torch.randperm_v1`), PyTorch version (`2.15.0`), SHA-256 partition checksums, and boundary sample index checks.
+  - Compact manifest: [`configs/cifar10_split_manifest.json`](configs/cifar10_split_manifest.json) (795 bytes) recording metadata, algorithm (`torch.randperm_v1`), PyTorch version (`2.15.0`), SHA-256 partition checksums, and boundary sample index checks.
   - Stale manifest protection: Changing seed automatically regenerates the split rather than reusing stale indices.
   - Checksum mismatch detection: Detects PRNG drift across environments or library upgrades and requires explicit regeneration via `force_regenerate=True`.
 - **Memory Architecture**:
@@ -323,5 +323,145 @@
   - `scripts/generate_baseline_plots.py`: Visualization generator.
   - `scripts/audit_baseline_results.py`: Independent numerical audit script.
 
+---
+
+## 8. Milestone 1, Task 3: Deterministic Synthetic Image Corruption Suite
+
+### Overview & Scientific Objective
+To evaluate edge model robustness under controlled realistic environmental perturbations, a custom deterministic corruption engine was implemented in `src/edge_vision/corruptions/`. The engine generates reproducible image degradations inspired by common benchmark taxonomies (e.g., Hendrycks & Dietterich 2019) across 6 corruption types and 5 severity levels.
+
+> **Important Scientific Scope**: This is an independent, custom deterministic synthetic image corruption suite tailored for CIFAR-10 resolution ($32\times 32\times 3$), not an official CIFAR-10-C release. Model robustness evaluation against these corruptions will be executed in subsequent benchmarking tasks.
+
+### Supported Corruptions & Implemented Severity Levels
+
+| Corruption Name | Parameter | Severity 1 | Severity 2 | Severity 3 | Severity 4 | Severity 5 | Description & Operational Details |
+| :--- | :--- | ---:| ---:| ---:| ---:| ---:| :--- |
+| `gaussian_noise` | $\sigma_{\text{norm}}$ ($[0, 1]$) | 0.04 | 0.06 | 0.08 | 0.10 | 0.12 | Zero-mean additive Gaussian noise; scaled by 255.0 to uint8 pixel range. |
+| `gaussian_blur` | $\sigma$ (pixels) | 0.3 | 0.5 | 0.7 | 0.9 | 1.1 | Spatial 2D Gaussian filter (`scipy.ndimage.gaussian_filter`, reflect mode, per-channel). |
+| `motion_blur` | $K$ (pixels) | 3 | 5 | 7 | 9 | 11 | Horizontal 1D linear motion blur ($1/K$ averaging kernel, reflect mode). |
+| `brightness` | factor | 0.90 | 0.75 | 0.60 | 0.45 | 0.30 | Multiplicative darkening ($I' = \text{clip}(\text{round}(I \times \text{factor}))$, progressive darkening). |
+| `contrast` | factor | 0.80 | 0.60 | 0.40 | 0.20 | 0.10 | Linear scaling around spatial channel mean ($I' = \mu_c + \text{factor} \times (I - \mu_c)$). |
+| `jpeg_compression` | quality | 80 | 60 | 40 | 20 | 10 | In-memory JPEG encoding/decoding via PIL and `io.BytesIO` (no disk writes). |
+
+### Deterministic Randomness & Common Random Numbers (CRN)
+- **Seed Derivation**: For stochastic corruptions (`gaussian_noise`), local `np.random.Generator` seeds are computed deterministically via SHA-256 cryptographic digest:
+  $$\text{seed}_{\text{u64}} = \text{struct.unpack}(">Q", \text{SHA256}(f"\{\text{seed}\}:\{\text{sample\_idx}\}:\{\text{corruption\_name}\}")[:8])[0]$$
+- **Common Random Numbers (CRN)**: A standardized Gaussian noise field $\xi \sim \mathcal{N}(0, 1)$ is sampled once per sample and scaled proportionally by $\sigma = \text{std\_norm} \times 255.0$ across severities 1 to 5. This provides *ceteris paribus* severity scaling where perturbation magnitude grows monotonically without altering the underlying spatial pattern.
+- **Empirical Guarantees**:
+  - Independent of Python's randomized process `hash()` seed (empirically verified across subprocesses with varying `PYTHONHASHSEED`).
+  - Independent of DataLoader worker scheduling, batch sizes, and dataset shuffle ordering.
+  - Isolated from global NumPy random state (`np.random.get_state()` is never mutated, and output is immune to global seeds).
+  - Bitwise reproducible across platforms, processes, and repeated runs.
+
+### Architectural Invariants & Memory Safety
+1. **Pre-Normalization Execution**: Corruptions execute on raw uint8 RGB arrays ($H \times W \times 3$, $[0, 255]$) *before* torchvision `ToTensor` (scaling to $[0, 1]$) and `Normalize` (standardization).
+2. **Non-Destructive Operations**: Raw input image arrays are never modified in-place. All operations return freshly allocated uint8 NumPy arrays.
+3. **Lightweight Dataset Adapter (`CorruptedDataset`)**:
+   - Recursively unwraps torchvision `CIFAR10`, `TransformedSubset`, or `torch.utils.data.Subset` views to resolve root canonical indices without duplicating image arrays in host memory.
+   - Strictly validates raw uint8 storage and rejects unsupported or pre-transformed datasets with an informative `TypeError`.
+   - Integrates seamlessly with PyTorch `DataLoader`.
+4. **Authoritative Single Source of Truth**:
+   - `configs/corruptions.yaml` is the single source of truth for severity parameters. The runtime registry is built dynamically from YAML, eliminating duplicate parameter tables in Python.
+
+### Verification & Test Suite
+- **New Tests Added**: 37 focused unit and integration tests in `tests/test_corruptions.py`.
+- **Total Test Suite**: 115 tests passing in 12.45s across all test modules (0 failures, 0 skipped).
+- **Verified Invariants**: Input shape/dtype validation, error handling, seed idempotence, CRN proportional scaling, subprocess hash isolation, zero global RNG mutation, multi-image monotonic severity degradation, horizontal motion blur directional invariance, contrast constant-image invariance, pre-normalization execution, and nested subset resolution.
+
+---
+
+## 9. Milestone 1, Task 4: FP32 Robustness Evaluation Engine
+
+### Overview & Scientific Objective
+To evaluate the out-of-distribution predictive reliability of the trained baseline models (`resnet18_cifar` and `mobilenet_v3_small_cifar`), a reproducible robustness evaluation engine was implemented in `src/edge_vision/evaluation/robustness.py` and fronted by CLI script `scripts/run_robustness_benchmark.py`.
+
+The benchmark measures accuracy degradation across the clean held-out CIFAR-10 test set and all 30 corruption conditions (6 corruptions $\times$ 5 severity levels), totaling 31 conditions per model (62 model-condition evaluations, 620,000 total inference predictions across 10,000 test samples).
+
+### Key Architectural Invariants & Scientific Guarantees
+1. **Shared-Batch Identical Input Presentation**:
+   - To guarantee perfectly paired comparisons, both models are loaded into unified memory simultaneously (~141 MB total RSS; models take ~51 MB parameter memory).
+   - In each condition, each batch `(batch_inputs, batch_targets)` is fetched once from the condition DataLoader, transferred to the active device (`mps` / `cpu`), and passed sequentially to ResNet-18 and MobileNetV3-Small in the same forward loop under `torch.inference_mode()`.
+   - Empirically verified in `tests/test_robustness.py::test_shared_batch_input_identity_across_models` via an `IdentityCheckingModel` recording SHA-256 tensor byte digests across forward passes (0 byte discrepancies).
+2. **Explicit Degradation Formulas (No Negative Clipping)**:
+   - Absolute drop (percentage points): $\text{accuracy\_drop\_pp} = (\text{clean\_acc} - \text{corrupted\_acc}) \times 100.0$
+   - Relative accuracy drop: $\text{relative\_accuracy\_drop} = (\text{clean\_acc} - \text{corrupted\_acc}) / \text{clean\_acc}$
+   - Degradation metrics explicitly preserve negative values (e.g. if a model performs marginally better on low-severity brightness).
+3. **Comprehensive Aggregate Summaries**:
+   - Unweighted arithmetic mean corrupted accuracy and mean accuracy drop (overall across all 30 corruptions, per-corruption across 5 severities, and per-severity across 6 corruptions).
+4. **Synchronized Condition Wall-Clock Timing (`condition_wall_time_seconds`)**:
+   - Condition wall-clock time measures the complete shared evaluation loop, including DataLoader iteration, corruption generation, preprocessing, device transfer, both model forward passes, and metric tracking. It is not an isolated per-model inference latency measurement (isolated latency profiling is reserved for Milestone 4). Device synchronization (`torch.mps.synchronize()`) is enforced before and after the batch evaluation loop.
+5. **Atomic Multi-Format Persistence**:
+   - Saves `metadata.json` (SHA-256 hashes of checkpoints and config, environment versions, timestamps), `results.csv` (1 row per model-condition evaluation), `results.json` (per-condition metrics, confusion matrices, class accuracies), and `summary.json` (comparative aggregates).
+6. **Safety Interlocks & Overwrite Protection**:
+   - The CLI requires an explicit `--smoke-test`, `--max-samples <N>`, or `--full-run` flag to guard against accidental long-running 620,000-prediction runs during exploratory work.
+   - Output directory overwrite protection: Validates before checkpoint loading or model evaluation whether the target output directory already contains completed benchmark artifacts (`metadata.json`, `results.csv`, `results.json`, `summary.json`). Halts immediately with a clear error unless `--overwrite` is explicitly passed.
+
+### Smoke Test Validation (Stage C)
+- **Configuration**: Evaluated both models on clean test set and `gaussian_noise` (severity 1) over a 128-sample subset using seed 42 on MPS device.
+- **Results**:
+  - `clean`: ResNet-18 Acc 96.88% (Loss 0.1332); MobileNetV3-Small Acc 87.50% (Loss 0.3934).
+  - `gaussian_noise_sev1`: ResNet-18 Acc 82.03% (-14.84 pp, rel 15.32%, Loss 0.7172); MobileNetV3-Small Acc 74.22% (-13.28 pp, rel 15.18%, Loss 0.7228).
+  - Checkpoints verified via SHA-256 hashes matching baseline audit. Output files `metadata.json`, `results.csv`, `results.json`, `summary.json` written atomically and verified.
+
+### Verification & Test Suite
+- **New Tests Added**: 15 unit and integration tests in `tests/test_robustness.py`.
+- **Total Test Suite**: 130 tests passing in 12.82s across all test modules (0 failures, 0 skipped).
+- **Verified Invariants**: Shared-batch input byte identity, degradation mathematics, sample limits, multi-level summary calculations, atomic persistence, condition wall-clock timing semantics, and output-directory overwrite protection.
+
+---
+
+## 10. Milestone 1, Task 4.2: Full FP32 Robustness Benchmark Results
+
+### Benchmark Execution Summary
+- **Execution Date**: 2026-11-05 (03:38:33 to 03:42:34 UTC)
+- **Total Runtime**: 240.98 seconds (~4.0 minutes) on Apple Silicon M3 (MPS)
+- **Evaluations**: 62 model-condition evaluations across 31 conditions (1 clean + 30 corruptions)
+- **Total Predictions**: 620,000 predictions over 10,000 held-out CIFAR-10 test samples
+- **Artifacts**: `experiments/robustness_fp32_seed42/` (`metadata.json`, `results.csv`, `results.json`, `summary.json`, `plots/`)
+
+### Main Model Comparison
+
+| Metric | ResNet-18 (FP32) | MobileNetV3-Small (FP32) | Architecture Delta (ResNet - MobileNet) |
+| :--- | ---:| ---:| ---:|
+| **Clean Test Accuracy** | 94.78% | 86.51% | +8.27 pp |
+| **Mean Corrupted Accuracy** | 65.73% | 58.83% | +6.90 pp |
+| **Mean Absolute Accuracy Drop** | 29.05 pp | 27.68 pp | +1.37 pp (ResNet drops more in abs pp) |
+| **Mean Relative Accuracy Drop** | 30.65% | 32.00% | -1.35% (MobileNet degrades slightly more relatively) |
+| **Worst Corruption Type** | `gaussian_noise` (45.46%) | `motion_blur` (41.47%) | Architecture-dependent vulnerability |
+| **Worst Single Condition** | `gaussian_noise_sev5` (22.79%) | `contrast_sev5` (20.50%) | Both models suffer catastrophic failure |
+
+### Per-Corruption Degradation Profiles
+
+| Corruption Type | ResNet-18 Mean Acc | ResNet-18 Drop (pp) | ResNet-18 Rel Drop | MobileNetV3 Mean Acc | MobileNetV3 Drop (pp) | MobileNetV3 Rel Drop | Leader Model |
+| :--- | ---:| ---:| ---:| ---:| ---:| ---:| :--- |
+| **Brightness** | 90.66% | 4.12 pp | 4.35% | 76.68% | 9.83 pp | 11.37% | ResNet-18 (+13.98 pp) |
+| **Contrast** | 72.06% | 22.72 pp | 23.97% | 56.49% | 30.02 pp | 34.70% | ResNet-18 (+15.57 pp) |
+| **Gaussian Blur** | 71.11% | 23.67 pp | 24.97% | 66.12% | 20.39 pp | 23.57% | ResNet-18 (+4.99 pp) |
+| **Gaussian Noise** | 45.46% | 49.32 pp | 52.04% | 42.54% | 43.97 pp | 50.82% | ResNet-18 (+2.92 pp) |
+| **JPEG Compression** | 67.83% | 26.95 pp | 28.44% | 69.66% | 16.85 pp | 19.48% | **MobileNetV3-Small (+1.83 pp)** |
+| **Motion Blur** | 47.27% | 47.51 pp | 50.13% | 41.47% | 45.04 pp | 52.07% | ResNet-18 (+5.80 pp) |
+
+### Key Scientific Findings & Interpretation
+1. **Empirical Robustness Trade-offs**:
+   - ResNet-18 achieves higher clean accuracy (94.78% vs. 86.51%) and higher overall mean corrupted accuracy (65.73% vs. 58.83%).
+   - However, absolute degradation (percentage points drop) is lower for MobileNetV3-Small (27.68 pp vs. 29.05 pp), whereas relative degradation (Mean Relative Accuracy Drop) is lower for ResNet-18 (30.65% vs. 32.00%). Robustness rankings depend on whether absolute or relative metrics are considered.
+2. **JPEG Compression Crossover**:
+   - Despite an 8.27 pp lower clean baseline, MobileNetV3-Small demonstrates higher empirical resilience to severe JPEG compression artifacts than ResNet-18:
+     - Quality 40 (sev 3): MobileNetV3 73.91% vs. ResNet-18 73.38% (+0.53 pp)
+     - Quality 20 (sev 4): MobileNetV3 65.45% vs. ResNet-18 59.25% (+6.20 pp)
+     - Quality 10 (sev 5): MobileNetV3 50.65% vs. ResNet-18 40.61% (+10.04 pp)
+   - *Scientific Note*: The observed crossover indicates an architecture-dependent difference in sensitivity to high-frequency block and quantization artifacts. The specific causal mechanisms (e.g. receptive field profiles, normalization, or activation dynamics) have not been experimentally isolated in this benchmark and remain hypotheses for future investigation.
+3. **Preserved Negative Drop on Mild Blur**:
+   - On `gaussian_blur` severity 1 ($\sigma = 0.3$), MobileNetV3-Small accuracy slightly improved from 86.51% (clean) to 86.54% (-0.03 pp drop, preserved without clipping).
+4. **Catastrophic Degradation Under High-Frequency Perturbations**:
+   - Additive Gaussian noise and linear motion blur cause the most severe degradation for both architectures, reducing Top-1 accuracy to 21–25% at severity 5.
+
+### Experimental Scope & Limitations
+1. **Low-Resolution Domain**: CIFAR-10 imagery ($32\times 32\times 3$) possesses low spatial redundancy; image degradations that eliminate fine details disproportionately impact small-scale feature extraction compared to higher-resolution domains (e.g. ImageNet at $224\times 224$).
+2. **Custom Synthetic Benchmark**: This benchmark is an independent, custom synthetic corruption suite inspired by common taxonomies, not the official pre-generated CIFAR-10-C distribution. The reported degradation metric is Mean Relative Accuracy Drop, not standardized mCE.
+3. **Parametric Constraints**: Motion blur is evaluated exclusively along the horizontal axis ($0^\circ$), and brightness is evaluated exclusively as progressive darkening ($0.90 \to 0.30$).
+4. **Single-Seed Evaluation**: Evaluations were conducted on seed 42 checkpoints; multi-seed variance and statistical significance across training runs have not been measured.
+5. **Domain Transfer**: Synthetic mathematical corruptions do not replicate physical lens aberrations, atmospheric weather, or analog sensor noise. Findings should not be extrapolated directly to safety-critical production deployments without domain-specific validation.
+
 - **Next Milestone**:
-  - Milestone 1, Task 3: Deterministic Synthetic Image Corruption Pipeline following the CIFAR-10-C taxonomy.
+  - Milestone 3: Compression & Quantization Engine (FP16 conversion and PyTorch INT8 PTQ).

@@ -1,0 +1,72 @@
+# Edge Vision Reliability Lab - Synthetic Image Corruption Suite Configuration
+# Custom deterministic implementation inspired by common corruption benchmarks (e.g., Hendrycks & Dietterich 2019).
+# Note: This is an independent, custom deterministic corruption suite, not an official CIFAR-10-C release.
+
+default_seed: 42
+
+corruptions:
+  gaussian_noise:
+    description: "Additive zero-mean Gaussian noise with normalized standard deviation (pixel range [0, 1])"
+    parameter_name: "std"
+    is_stochastic: true
+    severities:
+      1: 0.04
+      2: 0.06
+      3: 0.08
+      4: 0.10
+      5: 0.12
+
+  gaussian_blur:
+    description: "Spatial Gaussian blur filter with standard deviation sigma"
+    parameter_name: "sigma"
+    is_stochastic: false
+    severities:
+      1: 0.3
+      2: 0.5
+      3: 0.7
+      4: 0.9
+      5: 1.1
+
+  motion_blur:
+    description: "Horizontal linear motion blur with 1D averaging kernel of specified length"
+    parameter_name: "kernel_length"
+    is_stochastic: false
+    severities:
+      1: 3
+      2: 5
+      3: 7
+      4: 9
+      5: 11
+
+  brightness:
+    description: "Multiplicative brightness attenuation (progressive darkening)"
+    parameter_name: "factor"
+    is_stochastic: false
+    severities:
+      1: 0.90
+      2: 0.75
+      3: 0.60
+      4: 0.45
+      5: 0.30
+
+  contrast:
+    description: "Linear contrast attenuation relative to per-channel spatial mean"
+    parameter_name: "factor"
+    is_stochastic: false
+    severities:
+      1: 0.80
+      2: 0.60
+      3: 0.40
+      4: 0.20
+      5: 0.10
+
+  jpeg_compression:
+    description: "In-memory JPEG compression and decompression artifacts"
+    parameter_name: "quality"
+    is_stochastic: false
+    severities:
+      1: 80
+      2: 60
+      3: 40
+      4: 20
+      5: 10
