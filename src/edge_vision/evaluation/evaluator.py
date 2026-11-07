@@ -2,6 +2,7 @@
 Standalone evaluation execution, checkpoint model reconstruction, and atomic report persistence.
 """
 
+import copy
 from datetime import datetime, timezone
 import json
 import os
@@ -44,9 +45,110 @@ def resolve_evaluation_device(device_req: str) -> torch.device:
         raise ValueError(f"Unsupported evaluation device '{device_req}'. Expected 'auto', 'cpu', or 'mps'.")
 
 
+def convert_model_to_fp16(model: nn.Module) -> nn.Module:
+    """
+    Converts a model to half precision (FP16) in-place and sets eval mode.
+    Freezes all parameters and validates that model parameters and floating-point
+    buffers are successfully cast to torch.float16.
+
+    Parameters:
+        model: PyTorch nn.Module instance.
+
+    Returns:
+        The half-precision model in eval mode.
+    """
+    model.half()
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad = False
+        if param.dtype != torch.float16:
+            raise TypeError(f"Failed to convert parameter to float16, got {param.dtype}")
+    for name, buf in model.named_buffers():
+        if buf.is_floating_point() and buf.dtype != torch.float16:
+            raise TypeError(f"Failed to convert buffer {name} to float16, got {buf.dtype}")
+    return model
+
+
+def export_inference_checkpoint(
+    model: nn.Module,
+    model_architecture: str,
+    output_path: Union[str, Path],
+    precision: str = "fp32",
+    num_classes: int = 10,
+    source_checkpoint_path: Optional[Union[str, Path]] = None,
+    source_checkpoint_sha256: Optional[str] = None,
+    source_epoch: Optional[int] = None,
+    extra_metadata: Optional[Dict[str, Any]] = None,
+) -> Path:
+    """
+    Atomically exports a lightweight, inference-only model artifact.
+    Contains strictly model parameters and deployment metadata (no optimizer or RNG states).
+
+    Parameters:
+        model: Evaluated PyTorch model.
+        model_architecture: Architecture identifier string.
+        output_path: Destination path for the .pt artifact.
+        precision: 'fp32' or 'fp16'.
+        num_classes: Number of classification target classes (default 10).
+        source_checkpoint_path: Optional path to the source training checkpoint.
+        source_checkpoint_sha256: Optional SHA-256 hash of the source checkpoint.
+        source_epoch: Optional epoch number of the source checkpoint.
+        extra_metadata: Optional additional key-value metadata to persist.
+
+    Returns:
+        Path to the saved artifact.
+    """
+    prec_norm = precision.strip().lower()
+    if prec_norm not in ("fp32", "fp16"):
+        raise ValueError(f"Unsupported precision '{precision}'. Expected 'fp32' or 'fp16'.")
+
+    dest = Path(output_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = dest.with_suffix(f".tmp.{os.getpid()}")
+
+    # Prepare model state dict in target precision
+    if prec_norm == "fp16":
+        export_model = copy.deepcopy(model)
+        convert_model_to_fp16(export_model)
+        export_state_dict = export_model.state_dict()
+    else:
+        export_model = copy.deepcopy(model).float()
+        export_state_dict = export_model.state_dict()
+
+    param_count = sum(p.numel() for p in export_model.parameters())
+
+    payload: Dict[str, Any] = {
+        "model_architecture": model_architecture,
+        "precision": prec_norm,
+        "num_classes": num_classes,
+        "parameter_count": param_count,
+        "source_checkpoint_path": str(source_checkpoint_path) if source_checkpoint_path else None,
+        "source_checkpoint_sha256": source_checkpoint_sha256,
+        "source_epoch": source_epoch,
+        "export_timestamp": datetime.now(timezone.utc).isoformat(),
+        "model_state_dict": export_state_dict,
+    }
+    if extra_metadata:
+        payload["extra_metadata"] = extra_metadata
+
+    try:
+        torch.save(payload, temp_path)
+        os.replace(temp_path, dest)
+    except Exception:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        raise
+
+    return dest
+
+
 def load_checkpoint_for_evaluation(
     checkpoint_path: Union[str, Path],
     device: Optional[torch.device] = None,
+    precision: str = "auto",
 ) -> Tuple[nn.Module, Dict[str, Any]]:
     """
     Loads and reconstructs an evaluation-ready model from a previously saved checkpoint.
@@ -55,11 +157,14 @@ def load_checkpoint_for_evaluation(
       1. Reconstructs architecture via existing model factory registry.
       2. Strictly loads the model state dictionary (strict=True).
       3. Sets model.eval().
-      4. Never mutates the checkpoint on disk.
+      4. Converts to half precision (FP16) if requested or if checkpoint is native FP16.
+      5. Never mutates the checkpoint on disk.
 
     Parameters:
         checkpoint_path: Path to checkpoint .pt file.
         device: Optional torch.device to move model to.
+        precision: Target precision ('auto', 'fp32', or 'fp16'). Default 'auto' preserves
+                   checkpoint native precision (or fp32 if unspecified in checkpoint).
 
     Returns:
         Tuple of (model in eval mode, raw checkpoint payload dictionary).
@@ -67,6 +172,26 @@ def load_checkpoint_for_evaluation(
     path = Path(checkpoint_path)
     if not path.is_file():
         raise FileNotFoundError(f"Checkpoint file not found: {path}")
+
+    prec_norm = precision.strip().lower()
+    if prec_norm not in ("auto", "fp32", "fp16", "int8"):
+        raise ValueError(f"Unsupported precision '{precision}'. Expected 'auto', 'fp32', 'fp16', or 'int8'.")
+
+    # TorchScript artifact loading (e.g. INT8 models)
+    if prec_norm == "int8" or str(path).endswith("_int8.pt"):
+        torch.backends.quantized.engine = "qnnpack"
+        eval_device = device if device is not None else torch.device("cpu")
+        model = torch.jit.load(str(path), map_location=eval_device)
+        meta_path = path.with_suffix(".json")
+        if meta_path.exists():
+            with open(meta_path, "r") as f:
+                checkpoint = json.load(f)
+        else:
+            checkpoint = {
+                "precision": "int8",
+                "model_architecture": "resnet18_cifar" if "resnet" in path.name else "mobilenet_v3_small_cifar",
+            }
+        return model, checkpoint
 
     checkpoint = CheckpointManager.load_checkpoint(path)
 
@@ -76,9 +201,27 @@ def load_checkpoint_for_evaluation(
     if "model_state_dict" not in checkpoint:
         raise ValueError(f"Malformed checkpoint at {path}: missing 'model_state_dict'.")
 
+    ckpt_precision = checkpoint.get("precision", "fp32")
+    if prec_norm == "auto":
+        target_precision = ckpt_precision
+    else:
+        target_precision = prec_norm
+
     arch_name = checkpoint["model_architecture"]
-    model = get_model(arch_name, num_classes=10)
+    num_classes = checkpoint.get("num_classes", 10)
+    model = get_model(arch_name, num_classes=num_classes)
+
+    # If checkpoint state_dict has fp16 weights, convert model first so load_state_dict matches dtypes
+    if ckpt_precision == "fp16":
+        convert_model_to_fp16(model)
+
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+
+    if target_precision == "fp16":
+        convert_model_to_fp16(model)
+    elif target_precision == "fp32":
+        model.float()
+
     model.eval()
 
     if device is not None:
@@ -173,16 +316,23 @@ def evaluate_model(
         EvaluationMetrics dataclass instance.
     """
     model.eval()
-    model.to(device)
+    if hasattr(model, "to"):
+        model.to(device)
     tracker = EvaluationTracker(class_names=class_names)
+    model_dtype = torch.float32
+    for p in model.parameters():
+        model_dtype = p.dtype
+        break
 
     with torch.inference_mode():
         for inputs, targets in dataloader:
             inputs = inputs.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
+            if inputs.dtype != model_dtype:
+                inputs = inputs.to(dtype=model_dtype)
 
             outputs = model(inputs)
-            loss = criterion(outputs, targets)
+            loss = criterion(outputs.float(), targets)
 
             tracker.update(loss.item(), outputs, targets, batch_size=inputs.size(0))
 

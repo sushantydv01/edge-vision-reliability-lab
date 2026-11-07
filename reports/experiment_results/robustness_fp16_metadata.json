@@ -1,0 +1,78 @@
+{
+  "batch_size": 64,
+  "benchmark_type": "full",
+  "corruption_configuration": {
+    "corruptions_evaluated": [
+      "brightness",
+      "contrast",
+      "gaussian_blur",
+      "gaussian_noise",
+      "jpeg_compression",
+      "motion_blur"
+    ],
+    "gaussian_noise_crn": true,
+    "path": "/Users/sushantydv01/Desktop/edge-vision-reliability-lab/configs/corruptions.yaml",
+    "severities_evaluated": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "sha256": "9f663973e2074f0df47ec27a86f0550a4943615535c003aecd6a1320ab27d349"
+  },
+  "dataset": {
+    "name": "cifar10",
+    "normalization_mean": [
+      0.4914,
+      0.4822,
+      0.4465
+    ],
+    "normalization_std": [
+      0.247,
+      0.2435,
+      0.2616
+    ],
+    "split": "test",
+    "total_available_samples": 10000
+  },
+  "device": "mps",
+  "environment": {
+    "numpy_version": "2.5.4",
+    "pillow_version": "13.0.0",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "processor": "arm",
+    "python_version": "3.12.16",
+    "scipy_version": "1.18.1",
+    "torch_version": "2.15.0",
+    "torchvision_version": "0.29.2"
+  },
+  "max_samples_per_condition": 10000,
+  "models_evaluated": {
+    "mobilenet_v3_small_cifar": {
+      "best_epoch": 98,
+      "best_metric_value": 0.8686,
+      "checkpoint_path": "experiments/exp_baseline_mobilenet_v3_small_seed42/checkpoints/best_checkpoint.pt",
+      "epoch": 98,
+      "evaluated_precision": "fp16",
+      "model_architecture": "mobilenet_v3_small_cifar",
+      "sha256": "7243571c4d769b0a489ae3fd7392f407b80609de9e3c81f60284e21afca581c7"
+    },
+    "resnet18_cifar": {
+      "best_epoch": 97,
+      "best_metric_value": 0.955,
+      "checkpoint_path": "experiments/exp_baseline_resnet18_seed42/checkpoints/best_checkpoint.pt",
+      "epoch": 97,
+      "evaluated_precision": "fp16",
+      "model_architecture": "resnet18_cifar",
+      "sha256": "56a238e67ad34321895d88da43ea182141a0355bf15bee94ca2dc51ccdedabff"
+    }
+  },
+  "precision": "fp16",
+  "seed": 42,
+  "timestamp_end": "2026-11-05T05:06:15.404150+00:00",
+  "timestamp_start": "2026-11-05T05:02:45.112651+00:00",
+  "total_conditions": 31,
+  "total_evaluations": 62,
+  "total_runtime_seconds": 210.291
+}

@@ -265,7 +265,11 @@ class RobustnessEvaluator:
         # Move and freeze models
         for name, model in self.models.items():
             model.eval()
-            model.to(self.device)
+            if hasattr(model, "to"):
+                try:
+                    model.to(self.device)
+                except Exception:
+                    pass
             for param in model.parameters():
                 param.requires_grad = False
 
@@ -299,10 +303,15 @@ class RobustnessEvaluator:
                 batch_inputs = batch_inputs.to(self.device, non_blocking=True)
                 batch_targets = batch_targets.to(self.device, non_blocking=True)
 
-                # Present the identical batch_inputs tensor to each model
+                # Present the identical batch_inputs tensor to each model (matching dtype)
                 for m_name, model in self.models.items():
-                    outputs = model(batch_inputs)
-                    loss = self.criterion(outputs, batch_targets)
+                    model_dtype = torch.float32
+                    for p in model.parameters():
+                        model_dtype = p.dtype
+                        break
+                    m_inputs = batch_inputs.to(dtype=model_dtype) if batch_inputs.dtype != model_dtype else batch_inputs
+                    outputs = model(m_inputs)
+                    loss = self.criterion(outputs.float(), batch_targets)
                     trackers[m_name].update(
                         batch_loss=loss.item(),
                         preds=outputs,

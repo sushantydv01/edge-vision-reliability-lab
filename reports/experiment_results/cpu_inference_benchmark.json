@@ -1,0 +1,1297 @@
+{
+  "metadata": {
+    "device": "cpu",
+    "cpu_architecture": "arm64",
+    "quantized_engine": "qnnpack",
+    "pytorch_version": "2.15.0",
+    "benchmark_timestamp": "2026-11-07T03:42:04.754144+00:00",
+    "repetitions": 2,
+    "isolation_method": "Fresh OS child process for every individual run",
+    "notes": "Isolated-process CPU benchmark comparing Eager FP32, TorchScript FP32, and TorchScript INT8. Each configuration ran in a fresh child process to eliminate OpenMP worker thread state retention. Measurements are reported across 1, 2, and 4 threads, with run-to-run variation across independent processes."
+  },
+  "configurations": {
+    "th1": {
+      "threads": 1,
+      "models": {
+        "mobilenet_v3_small_cifar": {
+          "eager_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 4.076,
+              "median_latency_ms": 4.074,
+              "p95_latency_ms": 4.214,
+              "throughput_samples_per_sec": 245.4,
+              "repetition_means_ms": [
+                4.044,
+                4.109
+              ],
+              "repetition_difference_ms": 0.065,
+              "repetition_variation_pct": 1.59,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44074,
+                  "mean_latency_ms": 4.044,
+                  "median_latency_ms": 4.035,
+                  "p95_latency_ms": 4.228,
+                  "throughput_samples_per_sec": 247.3
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44490,
+                  "mean_latency_ms": 4.109,
+                  "median_latency_ms": 4.112,
+                  "p95_latency_ms": 4.201,
+                  "throughput_samples_per_sec": 243.4
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 335.587,
+              "median_latency_ms": 333.994,
+              "p95_latency_ms": 345.145,
+              "throughput_samples_per_sec": 190.7,
+              "repetition_means_ms": [
+                335.251,
+                335.923
+              ],
+              "repetition_difference_ms": 0.672,
+              "repetition_variation_pct": 0.2,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44079,
+                  "mean_latency_ms": 335.251,
+                  "median_latency_ms": 332.356,
+                  "p95_latency_ms": 349.398,
+                  "throughput_samples_per_sec": 190.9
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44497,
+                  "mean_latency_ms": 335.923,
+                  "median_latency_ms": 335.632,
+                  "p95_latency_ms": 340.892,
+                  "throughput_samples_per_sec": 190.5
+                }
+              ]
+            }
+          },
+          "torchscript_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 3.782,
+              "median_latency_ms": 3.77,
+              "p95_latency_ms": 3.888,
+              "throughput_samples_per_sec": 264.5,
+              "repetition_means_ms": [
+                3.805,
+                3.758
+              ],
+              "repetition_difference_ms": 0.047,
+              "repetition_variation_pct": 1.24,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44091,
+                  "mean_latency_ms": 3.805,
+                  "median_latency_ms": 3.785,
+                  "p95_latency_ms": 3.953,
+                  "throughput_samples_per_sec": 262.8
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44507,
+                  "mean_latency_ms": 3.758,
+                  "median_latency_ms": 3.755,
+                  "p95_latency_ms": 3.824,
+                  "throughput_samples_per_sec": 266.1
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 335.784,
+              "median_latency_ms": 335.946,
+              "p95_latency_ms": 340.308,
+              "throughput_samples_per_sec": 190.6,
+              "repetition_means_ms": [
+                338.472,
+                333.096
+              ],
+              "repetition_difference_ms": 5.376,
+              "repetition_variation_pct": 1.6,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44097,
+                  "mean_latency_ms": 338.472,
+                  "median_latency_ms": 338.918,
+                  "p95_latency_ms": 345.719,
+                  "throughput_samples_per_sec": 189.1
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44513,
+                  "mean_latency_ms": 333.096,
+                  "median_latency_ms": 332.973,
+                  "p95_latency_ms": 334.897,
+                  "throughput_samples_per_sec": 192.1
+                }
+              ]
+            }
+          },
+          "torchscript_int8": {
+            "batch_1": {
+              "mean_latency_ms": 0.416,
+              "median_latency_ms": 0.411,
+              "p95_latency_ms": 0.453,
+              "throughput_samples_per_sec": 2404.3,
+              "repetition_means_ms": [
+                0.417,
+                0.415
+              ],
+              "repetition_difference_ms": 0.002,
+              "repetition_variation_pct": 0.48,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44125,
+                  "mean_latency_ms": 0.417,
+                  "median_latency_ms": 0.41,
+                  "p95_latency_ms": 0.469,
+                  "throughput_samples_per_sec": 2396.3
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44523,
+                  "mean_latency_ms": 0.415,
+                  "median_latency_ms": 0.412,
+                  "p95_latency_ms": 0.437,
+                  "throughput_samples_per_sec": 2412.3
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 17.306,
+              "median_latency_ms": 17.02,
+              "p95_latency_ms": 17.41,
+              "throughput_samples_per_sec": 3699.4,
+              "repetition_means_ms": [
+                17.636,
+                16.977
+              ],
+              "repetition_difference_ms": 0.659,
+              "repetition_variation_pct": 3.81,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44131,
+                  "mean_latency_ms": 17.636,
+                  "median_latency_ms": 17.079,
+                  "p95_latency_ms": 17.727,
+                  "throughput_samples_per_sec": 3628.9
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44530,
+                  "mean_latency_ms": 16.977,
+                  "median_latency_ms": 16.961,
+                  "p95_latency_ms": 17.092,
+                  "throughput_samples_per_sec": 3769.9
+                }
+              ]
+            }
+          }
+        },
+        "resnet18_cifar": {
+          "eager_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 4.884,
+              "median_latency_ms": 4.72,
+              "p95_latency_ms": 5.127,
+              "throughput_samples_per_sec": 204.8,
+              "repetition_means_ms": [
+                4.809,
+                4.959
+              ],
+              "repetition_difference_ms": 0.15,
+              "repetition_variation_pct": 3.07,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44136,
+                  "mean_latency_ms": 4.809,
+                  "median_latency_ms": 4.805,
+                  "p95_latency_ms": 5.014,
+                  "throughput_samples_per_sec": 208.0
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44531,
+                  "mean_latency_ms": 4.959,
+                  "median_latency_ms": 4.634,
+                  "p95_latency_ms": 5.24,
+                  "throughput_samples_per_sec": 201.7
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 720.644,
+              "median_latency_ms": 713.0,
+              "p95_latency_ms": 747.438,
+              "throughput_samples_per_sec": 88.8,
+              "repetition_means_ms": [
+                728.976,
+                712.312
+              ],
+              "repetition_difference_ms": 16.664,
+              "repetition_variation_pct": 2.31,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44143,
+                  "mean_latency_ms": 728.976,
+                  "median_latency_ms": 715.962,
+                  "p95_latency_ms": 771.141,
+                  "throughput_samples_per_sec": 87.8
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44538,
+                  "mean_latency_ms": 712.312,
+                  "median_latency_ms": 710.039,
+                  "p95_latency_ms": 723.736,
+                  "throughput_samples_per_sec": 89.8
+                }
+              ]
+            }
+          },
+          "torchscript_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 4.404,
+              "median_latency_ms": 4.412,
+              "p95_latency_ms": 4.507,
+              "throughput_samples_per_sec": 227.1,
+              "repetition_means_ms": [
+                4.415,
+                4.393
+              ],
+              "repetition_difference_ms": 0.022,
+              "repetition_variation_pct": 0.5,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44213,
+                  "mean_latency_ms": 4.415,
+                  "median_latency_ms": 4.414,
+                  "p95_latency_ms": 4.509,
+                  "throughput_samples_per_sec": 226.5
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44554,
+                  "mean_latency_ms": 4.393,
+                  "median_latency_ms": 4.41,
+                  "p95_latency_ms": 4.505,
+                  "throughput_samples_per_sec": 227.6
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 715.187,
+              "median_latency_ms": 709.454,
+              "p95_latency_ms": 722.534,
+              "throughput_samples_per_sec": 89.5,
+              "repetition_means_ms": [
+                723.592,
+                706.782
+              ],
+              "repetition_difference_ms": 16.81,
+              "repetition_variation_pct": 2.35,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44219,
+                  "mean_latency_ms": 723.592,
+                  "median_latency_ms": 713.401,
+                  "p95_latency_ms": 731.143,
+                  "throughput_samples_per_sec": 88.4
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44560,
+                  "mean_latency_ms": 706.782,
+                  "median_latency_ms": 705.507,
+                  "p95_latency_ms": 713.925,
+                  "throughput_samples_per_sec": 90.6
+                }
+              ]
+            }
+          },
+          "torchscript_int8": {
+            "batch_1": {
+              "mean_latency_ms": 10.889,
+              "median_latency_ms": 10.887,
+              "p95_latency_ms": 11.004,
+              "throughput_samples_per_sec": 91.8,
+              "repetition_means_ms": [
+                10.943,
+                10.834
+              ],
+              "repetition_difference_ms": 0.109,
+              "repetition_variation_pct": 1.0,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44247,
+                  "mean_latency_ms": 10.943,
+                  "median_latency_ms": 10.937,
+                  "p95_latency_ms": 11.049,
+                  "throughput_samples_per_sec": 91.4
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44574,
+                  "mean_latency_ms": 10.834,
+                  "median_latency_ms": 10.838,
+                  "p95_latency_ms": 10.959,
+                  "throughput_samples_per_sec": 92.3
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 695.087,
+              "median_latency_ms": 694.114,
+              "p95_latency_ms": 704.374,
+              "throughput_samples_per_sec": 92.1,
+              "repetition_means_ms": [
+                697.481,
+                692.693
+              ],
+              "repetition_difference_ms": 4.788,
+              "repetition_variation_pct": 0.69,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44255,
+                  "mean_latency_ms": 697.481,
+                  "median_latency_ms": 697.58,
+                  "p95_latency_ms": 699.951,
+                  "throughput_samples_per_sec": 91.8
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44580,
+                  "mean_latency_ms": 692.693,
+                  "median_latency_ms": 690.648,
+                  "p95_latency_ms": 708.796,
+                  "throughput_samples_per_sec": 92.4
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "th2": {
+      "threads": 2,
+      "models": {
+        "mobilenet_v3_small_cifar": {
+          "eager_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 16.966,
+              "median_latency_ms": 16.966,
+              "p95_latency_ms": 17.142,
+              "throughput_samples_per_sec": 58.9,
+              "repetition_means_ms": [
+                17.14,
+                16.793
+              ],
+              "repetition_difference_ms": 0.347,
+              "repetition_variation_pct": 2.05,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44274,
+                  "mean_latency_ms": 17.14,
+                  "median_latency_ms": 17.139,
+                  "p95_latency_ms": 17.288,
+                  "throughput_samples_per_sec": 58.3
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44605,
+                  "mean_latency_ms": 16.793,
+                  "median_latency_ms": 16.794,
+                  "p95_latency_ms": 16.995,
+                  "throughput_samples_per_sec": 59.5
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 249.585,
+              "median_latency_ms": 249.431,
+              "p95_latency_ms": 251.228,
+              "throughput_samples_per_sec": 256.4,
+              "repetition_means_ms": [
+                249.987,
+                249.184
+              ],
+              "repetition_difference_ms": 0.803,
+              "repetition_variation_pct": 0.32,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44281,
+                  "mean_latency_ms": 249.987,
+                  "median_latency_ms": 249.602,
+                  "p95_latency_ms": 251.715,
+                  "throughput_samples_per_sec": 256.0
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44611,
+                  "mean_latency_ms": 249.184,
+                  "median_latency_ms": 249.261,
+                  "p95_latency_ms": 250.742,
+                  "throughput_samples_per_sec": 256.8
+                }
+              ]
+            }
+          },
+          "torchscript_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 17.015,
+              "median_latency_ms": 16.881,
+              "p95_latency_ms": 17.071,
+              "throughput_samples_per_sec": 58.8,
+              "repetition_means_ms": [
+                17.061,
+                16.97
+              ],
+              "repetition_difference_ms": 0.091,
+              "repetition_variation_pct": 0.53,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44298,
+                  "mean_latency_ms": 17.061,
+                  "median_latency_ms": 16.702,
+                  "p95_latency_ms": 16.931,
+                  "throughput_samples_per_sec": 58.6
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44619,
+                  "mean_latency_ms": 16.97,
+                  "median_latency_ms": 17.059,
+                  "p95_latency_ms": 17.21,
+                  "throughput_samples_per_sec": 58.9
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 248.442,
+              "median_latency_ms": 248.645,
+              "p95_latency_ms": 249.834,
+              "throughput_samples_per_sec": 257.6,
+              "repetition_means_ms": [
+                248.436,
+                248.448
+              ],
+              "repetition_difference_ms": 0.012,
+              "repetition_variation_pct": 0.0,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44304,
+                  "mean_latency_ms": 248.436,
+                  "median_latency_ms": 248.78,
+                  "p95_latency_ms": 249.822,
+                  "throughput_samples_per_sec": 257.6
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44627,
+                  "mean_latency_ms": 248.448,
+                  "median_latency_ms": 248.511,
+                  "p95_latency_ms": 249.847,
+                  "throughput_samples_per_sec": 257.6
+                }
+              ]
+            }
+          },
+          "torchscript_int8": {
+            "batch_1": {
+              "mean_latency_ms": 0.429,
+              "median_latency_ms": 0.427,
+              "p95_latency_ms": 0.457,
+              "throughput_samples_per_sec": 2331.1,
+              "repetition_means_ms": [
+                0.431,
+                0.427
+              ],
+              "repetition_difference_ms": 0.004,
+              "repetition_variation_pct": 0.93,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44313,
+                  "mean_latency_ms": 0.431,
+                  "median_latency_ms": 0.428,
+                  "p95_latency_ms": 0.467,
+                  "throughput_samples_per_sec": 2321.5
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44635,
+                  "mean_latency_ms": 0.427,
+                  "median_latency_ms": 0.426,
+                  "p95_latency_ms": 0.446,
+                  "throughput_samples_per_sec": 2340.6
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 9.399,
+              "median_latency_ms": 9.351,
+              "p95_latency_ms": 9.722,
+              "throughput_samples_per_sec": 6808.9,
+              "repetition_means_ms": [
+                9.429,
+                9.37
+              ],
+              "repetition_difference_ms": 0.059,
+              "repetition_variation_pct": 0.63,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44319,
+                  "mean_latency_ms": 9.429,
+                  "median_latency_ms": 9.339,
+                  "p95_latency_ms": 10.032,
+                  "throughput_samples_per_sec": 6787.5
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44640,
+                  "mean_latency_ms": 9.37,
+                  "median_latency_ms": 9.362,
+                  "p95_latency_ms": 9.412,
+                  "throughput_samples_per_sec": 6830.4
+                }
+              ]
+            }
+          }
+        },
+        "resnet18_cifar": {
+          "eager_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 4.2,
+              "median_latency_ms": 4.154,
+              "p95_latency_ms": 4.573,
+              "throughput_samples_per_sec": 238.2,
+              "repetition_means_ms": [
+                4.188,
+                4.211
+              ],
+              "repetition_difference_ms": 0.023,
+              "repetition_variation_pct": 0.55,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44326,
+                  "mean_latency_ms": 4.188,
+                  "median_latency_ms": 4.165,
+                  "p95_latency_ms": 4.482,
+                  "throughput_samples_per_sec": 238.8
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44642,
+                  "mean_latency_ms": 4.211,
+                  "median_latency_ms": 4.143,
+                  "p95_latency_ms": 4.664,
+                  "throughput_samples_per_sec": 237.5
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 421.108,
+              "median_latency_ms": 418.924,
+              "p95_latency_ms": 428.252,
+              "throughput_samples_per_sec": 152.0,
+              "repetition_means_ms": [
+                423.353,
+                418.863
+              ],
+              "repetition_difference_ms": 4.49,
+              "repetition_variation_pct": 1.07,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44338,
+                  "mean_latency_ms": 423.353,
+                  "median_latency_ms": 418.774,
+                  "p95_latency_ms": 433.888,
+                  "throughput_samples_per_sec": 151.2
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44647,
+                  "mean_latency_ms": 418.863,
+                  "median_latency_ms": 419.074,
+                  "p95_latency_ms": 422.616,
+                  "throughput_samples_per_sec": 152.8
+                }
+              ]
+            }
+          },
+          "torchscript_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 3.916,
+              "median_latency_ms": 3.911,
+              "p95_latency_ms": 4.01,
+              "throughput_samples_per_sec": 255.5,
+              "repetition_means_ms": [
+                3.837,
+                3.994
+              ],
+              "repetition_difference_ms": 0.157,
+              "repetition_variation_pct": 4.01,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44357,
+                  "mean_latency_ms": 3.837,
+                  "median_latency_ms": 3.831,
+                  "p95_latency_ms": 3.899,
+                  "throughput_samples_per_sec": 260.6
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44664,
+                  "mean_latency_ms": 3.994,
+                  "median_latency_ms": 3.991,
+                  "p95_latency_ms": 4.121,
+                  "throughput_samples_per_sec": 250.4
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 418.882,
+              "median_latency_ms": 417.87,
+              "p95_latency_ms": 425.549,
+              "throughput_samples_per_sec": 152.8,
+              "repetition_means_ms": [
+                420.161,
+                417.603
+              ],
+              "repetition_difference_ms": 2.558,
+              "repetition_variation_pct": 0.61,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44363,
+                  "mean_latency_ms": 420.161,
+                  "median_latency_ms": 418.894,
+                  "p95_latency_ms": 431.343,
+                  "throughput_samples_per_sec": 152.3
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44670,
+                  "mean_latency_ms": 417.603,
+                  "median_latency_ms": 416.847,
+                  "p95_latency_ms": 419.755,
+                  "throughput_samples_per_sec": 153.3
+                }
+              ]
+            }
+          },
+          "torchscript_int8": {
+            "batch_1": {
+              "mean_latency_ms": 5.709,
+              "median_latency_ms": 5.703,
+              "p95_latency_ms": 5.805,
+              "throughput_samples_per_sec": 175.1,
+              "repetition_means_ms": [
+                5.708,
+                5.71
+              ],
+              "repetition_difference_ms": 0.002,
+              "repetition_variation_pct": 0.04,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44375,
+                  "mean_latency_ms": 5.708,
+                  "median_latency_ms": 5.716,
+                  "p95_latency_ms": 5.762,
+                  "throughput_samples_per_sec": 175.2
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44680,
+                  "mean_latency_ms": 5.71,
+                  "median_latency_ms": 5.689,
+                  "p95_latency_ms": 5.848,
+                  "throughput_samples_per_sec": 175.1
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 361.346,
+              "median_latency_ms": 358.904,
+              "p95_latency_ms": 371.015,
+              "throughput_samples_per_sec": 177.1,
+              "repetition_means_ms": [
+                363.291,
+                359.4
+              ],
+              "repetition_difference_ms": 3.891,
+              "repetition_variation_pct": 1.08,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44381,
+                  "mean_latency_ms": 363.291,
+                  "median_latency_ms": 358.909,
+                  "p95_latency_ms": 377.934,
+                  "throughput_samples_per_sec": 176.2
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44686,
+                  "mean_latency_ms": 359.4,
+                  "median_latency_ms": 358.898,
+                  "p95_latency_ms": 364.097,
+                  "throughput_samples_per_sec": 178.1
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "th4": {
+      "threads": 4,
+      "models": {
+        "mobilenet_v3_small_cifar": {
+          "eager_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 23.801,
+              "median_latency_ms": 23.956,
+              "p95_latency_ms": 24.477,
+              "throughput_samples_per_sec": 42.0,
+              "repetition_means_ms": [
+                24.128,
+                23.474
+              ],
+              "repetition_difference_ms": 0.654,
+              "repetition_variation_pct": 2.75,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44401,
+                  "mean_latency_ms": 24.128,
+                  "median_latency_ms": 24.223,
+                  "p95_latency_ms": 24.839,
+                  "throughput_samples_per_sec": 41.4
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44695,
+                  "mean_latency_ms": 23.474,
+                  "median_latency_ms": 23.689,
+                  "p95_latency_ms": 24.114,
+                  "throughput_samples_per_sec": 42.6
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 263.021,
+              "median_latency_ms": 263.113,
+              "p95_latency_ms": 265.01,
+              "throughput_samples_per_sec": 243.3,
+              "repetition_means_ms": [
+                261.953,
+                264.09
+              ],
+              "repetition_difference_ms": 2.137,
+              "repetition_variation_pct": 0.81,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44412,
+                  "mean_latency_ms": 261.953,
+                  "median_latency_ms": 261.803,
+                  "p95_latency_ms": 264.117,
+                  "throughput_samples_per_sec": 244.3
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44702,
+                  "mean_latency_ms": 264.09,
+                  "median_latency_ms": 264.422,
+                  "p95_latency_ms": 265.904,
+                  "throughput_samples_per_sec": 242.3
+                }
+              ]
+            }
+          },
+          "torchscript_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 23.466,
+              "median_latency_ms": 23.295,
+              "p95_latency_ms": 24.425,
+              "throughput_samples_per_sec": 42.7,
+              "repetition_means_ms": [
+                23.22,
+                23.712
+              ],
+              "repetition_difference_ms": 0.492,
+              "repetition_variation_pct": 2.1,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44427,
+                  "mean_latency_ms": 23.22,
+                  "median_latency_ms": 23.171,
+                  "p95_latency_ms": 23.664,
+                  "throughput_samples_per_sec": 43.1
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44711,
+                  "mean_latency_ms": 23.712,
+                  "median_latency_ms": 23.419,
+                  "p95_latency_ms": 25.185,
+                  "throughput_samples_per_sec": 42.2
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 261.49,
+              "median_latency_ms": 260.9,
+              "p95_latency_ms": 268.055,
+              "throughput_samples_per_sec": 244.8,
+              "repetition_means_ms": [
+                261.91,
+                261.071
+              ],
+              "repetition_difference_ms": 0.839,
+              "repetition_variation_pct": 0.32,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44433,
+                  "mean_latency_ms": 261.91,
+                  "median_latency_ms": 261.322,
+                  "p95_latency_ms": 265.769,
+                  "throughput_samples_per_sec": 244.4
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44718,
+                  "mean_latency_ms": 261.071,
+                  "median_latency_ms": 260.479,
+                  "p95_latency_ms": 270.342,
+                  "throughput_samples_per_sec": 245.1
+                }
+              ]
+            }
+          },
+          "torchscript_int8": {
+            "batch_1": {
+              "mean_latency_ms": 0.478,
+              "median_latency_ms": 0.469,
+              "p95_latency_ms": 0.541,
+              "throughput_samples_per_sec": 2093.0,
+              "repetition_means_ms": [
+                0.476,
+                0.48
+              ],
+              "repetition_difference_ms": 0.004,
+              "repetition_variation_pct": 0.84,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44442,
+                  "mean_latency_ms": 0.476,
+                  "median_latency_ms": 0.468,
+                  "p95_latency_ms": 0.53,
+                  "throughput_samples_per_sec": 2102.5
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44773,
+                  "mean_latency_ms": 0.48,
+                  "median_latency_ms": 0.47,
+                  "p95_latency_ms": 0.552,
+                  "throughput_samples_per_sec": 2083.5
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 5.483,
+              "median_latency_ms": 5.49,
+              "p95_latency_ms": 5.61,
+              "throughput_samples_per_sec": 11672.4,
+              "repetition_means_ms": [
+                5.439,
+                5.527
+              ],
+              "repetition_difference_ms": 0.088,
+              "repetition_variation_pct": 1.6,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44448,
+                  "mean_latency_ms": 5.439,
+                  "median_latency_ms": 5.431,
+                  "p95_latency_ms": 5.539,
+                  "throughput_samples_per_sec": 11765.8
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44779,
+                  "mean_latency_ms": 5.527,
+                  "median_latency_ms": 5.549,
+                  "p95_latency_ms": 5.681,
+                  "throughput_samples_per_sec": 11579.0
+                }
+              ]
+            }
+          }
+        },
+        "resnet18_cifar": {
+          "eager_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 3.792,
+              "median_latency_ms": 3.726,
+              "p95_latency_ms": 4.304,
+              "throughput_samples_per_sec": 263.7,
+              "repetition_means_ms": [
+                3.777,
+                3.808
+              ],
+              "repetition_difference_ms": 0.031,
+              "repetition_variation_pct": 0.82,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44449,
+                  "mean_latency_ms": 3.777,
+                  "median_latency_ms": 3.715,
+                  "p95_latency_ms": 4.225,
+                  "throughput_samples_per_sec": 264.8
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44781,
+                  "mean_latency_ms": 3.808,
+                  "median_latency_ms": 3.737,
+                  "p95_latency_ms": 4.383,
+                  "throughput_samples_per_sec": 262.6
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 295.118,
+              "median_latency_ms": 292.757,
+              "p95_latency_ms": 317.898,
+              "throughput_samples_per_sec": 216.8,
+              "repetition_means_ms": [
+                297.528,
+                292.708
+              ],
+              "repetition_difference_ms": 4.82,
+              "repetition_variation_pct": 1.63,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44455,
+                  "mean_latency_ms": 297.528,
+                  "median_latency_ms": 293.828,
+                  "p95_latency_ms": 329.036,
+                  "throughput_samples_per_sec": 215.1
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44786,
+                  "mean_latency_ms": 292.708,
+                  "median_latency_ms": 291.687,
+                  "p95_latency_ms": 306.759,
+                  "throughput_samples_per_sec": 218.6
+                }
+              ]
+            }
+          },
+          "torchscript_fp32": {
+            "batch_1": {
+              "mean_latency_ms": 3.477,
+              "median_latency_ms": 3.463,
+              "p95_latency_ms": 3.595,
+              "throughput_samples_per_sec": 287.6,
+              "repetition_means_ms": [
+                3.478,
+                3.476
+              ],
+              "repetition_difference_ms": 0.002,
+              "repetition_variation_pct": 0.06,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44463,
+                  "mean_latency_ms": 3.478,
+                  "median_latency_ms": 3.456,
+                  "p95_latency_ms": 3.632,
+                  "throughput_samples_per_sec": 287.5
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44799,
+                  "mean_latency_ms": 3.476,
+                  "median_latency_ms": 3.47,
+                  "p95_latency_ms": 3.557,
+                  "throughput_samples_per_sec": 287.7
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 295.056,
+              "median_latency_ms": 291.902,
+              "p95_latency_ms": 312.512,
+              "throughput_samples_per_sec": 216.9,
+              "repetition_means_ms": [
+                290.826,
+                299.286
+              ],
+              "repetition_difference_ms": 8.46,
+              "repetition_variation_pct": 2.87,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44469,
+                  "mean_latency_ms": 290.826,
+                  "median_latency_ms": 292.023,
+                  "p95_latency_ms": 296.925,
+                  "throughput_samples_per_sec": 220.1
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44804,
+                  "mean_latency_ms": 299.286,
+                  "median_latency_ms": 291.781,
+                  "p95_latency_ms": 328.098,
+                  "throughput_samples_per_sec": 213.8
+                }
+              ]
+            }
+          },
+          "torchscript_int8": {
+            "batch_1": {
+              "mean_latency_ms": 3.084,
+              "median_latency_ms": 3.048,
+              "p95_latency_ms": 3.187,
+              "throughput_samples_per_sec": 324.3,
+              "repetition_means_ms": [
+                3.1,
+                3.068
+              ],
+              "repetition_difference_ms": 0.032,
+              "repetition_variation_pct": 1.04,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44477,
+                  "mean_latency_ms": 3.1,
+                  "median_latency_ms": 3.052,
+                  "p95_latency_ms": 3.229,
+                  "throughput_samples_per_sec": 322.6
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44815,
+                  "mean_latency_ms": 3.068,
+                  "median_latency_ms": 3.043,
+                  "p95_latency_ms": 3.144,
+                  "throughput_samples_per_sec": 326.0
+                }
+              ]
+            },
+            "batch_64": {
+              "mean_latency_ms": 186.973,
+              "median_latency_ms": 186.711,
+              "p95_latency_ms": 190.734,
+              "throughput_samples_per_sec": 342.3,
+              "repetition_means_ms": [
+                186.556,
+                187.39
+              ],
+              "repetition_difference_ms": 0.834,
+              "repetition_variation_pct": 0.45,
+              "individual_runs": [
+                {
+                  "repetition": 1,
+                  "pid": 44483,
+                  "mean_latency_ms": 186.556,
+                  "median_latency_ms": 186.613,
+                  "p95_latency_ms": 188.448,
+                  "throughput_samples_per_sec": 343.1
+                },
+                {
+                  "repetition": 2,
+                  "pid": 44824,
+                  "mean_latency_ms": 187.39,
+                  "median_latency_ms": 186.809,
+                  "p95_latency_ms": 193.021,
+                  "throughput_samples_per_sec": 341.5
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "comparative_analysis": {
+    "th1": {
+      "mobilenet_v3_small_cifar": {
+        "batch_1": {
+          "eager_fp32_mean_ms": 4.076,
+          "torchscript_fp32_mean_ms": 3.782,
+          "torchscript_int8_mean_ms": 0.416,
+          "torchscript_vs_eager_ratio": 1.078,
+          "int8_vs_torchscript_fp32_speedup": 9.091,
+          "int8_vs_eager_fp32_speedup": 9.798,
+          "int8_throughput_improvement_vs_torchscript_fp32": 9.09,
+          "int8_throughput_improvement_vs_eager_fp32": 9.797
+        },
+        "batch_64": {
+          "eager_fp32_mean_ms": 335.587,
+          "torchscript_fp32_mean_ms": 335.784,
+          "torchscript_int8_mean_ms": 17.306,
+          "torchscript_vs_eager_ratio": 0.999,
+          "int8_vs_torchscript_fp32_speedup": 19.403,
+          "int8_vs_eager_fp32_speedup": 19.391,
+          "int8_throughput_improvement_vs_torchscript_fp32": 19.409,
+          "int8_throughput_improvement_vs_eager_fp32": 19.399
+        }
+      },
+      "resnet18_cifar": {
+        "batch_1": {
+          "eager_fp32_mean_ms": 4.884,
+          "torchscript_fp32_mean_ms": 4.404,
+          "torchscript_int8_mean_ms": 10.889,
+          "torchscript_vs_eager_ratio": 1.109,
+          "int8_vs_torchscript_fp32_speedup": 0.404,
+          "int8_vs_eager_fp32_speedup": 0.449,
+          "int8_throughput_improvement_vs_torchscript_fp32": 0.404,
+          "int8_throughput_improvement_vs_eager_fp32": 0.448
+        },
+        "batch_64": {
+          "eager_fp32_mean_ms": 720.644,
+          "torchscript_fp32_mean_ms": 715.187,
+          "torchscript_int8_mean_ms": 695.087,
+          "torchscript_vs_eager_ratio": 1.008,
+          "int8_vs_torchscript_fp32_speedup": 1.029,
+          "int8_vs_eager_fp32_speedup": 1.037,
+          "int8_throughput_improvement_vs_torchscript_fp32": 1.029,
+          "int8_throughput_improvement_vs_eager_fp32": 1.037
+        }
+      }
+    },
+    "th2": {
+      "mobilenet_v3_small_cifar": {
+        "batch_1": {
+          "eager_fp32_mean_ms": 16.966,
+          "torchscript_fp32_mean_ms": 17.015,
+          "torchscript_int8_mean_ms": 0.429,
+          "torchscript_vs_eager_ratio": 0.997,
+          "int8_vs_torchscript_fp32_speedup": 39.662,
+          "int8_vs_eager_fp32_speedup": 39.548,
+          "int8_throughput_improvement_vs_torchscript_fp32": 39.645,
+          "int8_throughput_improvement_vs_eager_fp32": 39.577
+        },
+        "batch_64": {
+          "eager_fp32_mean_ms": 249.585,
+          "torchscript_fp32_mean_ms": 248.442,
+          "torchscript_int8_mean_ms": 9.399,
+          "torchscript_vs_eager_ratio": 1.005,
+          "int8_vs_torchscript_fp32_speedup": 26.433,
+          "int8_vs_eager_fp32_speedup": 26.554,
+          "int8_throughput_improvement_vs_torchscript_fp32": 26.432,
+          "int8_throughput_improvement_vs_eager_fp32": 26.556
+        }
+      },
+      "resnet18_cifar": {
+        "batch_1": {
+          "eager_fp32_mean_ms": 4.2,
+          "torchscript_fp32_mean_ms": 3.916,
+          "torchscript_int8_mean_ms": 5.709,
+          "torchscript_vs_eager_ratio": 1.073,
+          "int8_vs_torchscript_fp32_speedup": 0.686,
+          "int8_vs_eager_fp32_speedup": 0.736,
+          "int8_throughput_improvement_vs_torchscript_fp32": 0.685,
+          "int8_throughput_improvement_vs_eager_fp32": 0.735
+        },
+        "batch_64": {
+          "eager_fp32_mean_ms": 421.108,
+          "torchscript_fp32_mean_ms": 418.882,
+          "torchscript_int8_mean_ms": 361.346,
+          "torchscript_vs_eager_ratio": 1.005,
+          "int8_vs_torchscript_fp32_speedup": 1.159,
+          "int8_vs_eager_fp32_speedup": 1.165,
+          "int8_throughput_improvement_vs_torchscript_fp32": 1.159,
+          "int8_throughput_improvement_vs_eager_fp32": 1.165
+        }
+      }
+    },
+    "th4": {
+      "mobilenet_v3_small_cifar": {
+        "batch_1": {
+          "eager_fp32_mean_ms": 23.801,
+          "torchscript_fp32_mean_ms": 23.466,
+          "torchscript_int8_mean_ms": 0.478,
+          "torchscript_vs_eager_ratio": 1.014,
+          "int8_vs_torchscript_fp32_speedup": 49.092,
+          "int8_vs_eager_fp32_speedup": 49.793,
+          "int8_throughput_improvement_vs_torchscript_fp32": 49.016,
+          "int8_throughput_improvement_vs_eager_fp32": 49.833
+        },
+        "batch_64": {
+          "eager_fp32_mean_ms": 263.021,
+          "torchscript_fp32_mean_ms": 261.49,
+          "torchscript_int8_mean_ms": 5.483,
+          "torchscript_vs_eager_ratio": 1.006,
+          "int8_vs_torchscript_fp32_speedup": 47.691,
+          "int8_vs_eager_fp32_speedup": 47.97,
+          "int8_throughput_improvement_vs_torchscript_fp32": 47.681,
+          "int8_throughput_improvement_vs_eager_fp32": 47.975
+        }
+      },
+      "resnet18_cifar": {
+        "batch_1": {
+          "eager_fp32_mean_ms": 3.792,
+          "torchscript_fp32_mean_ms": 3.477,
+          "torchscript_int8_mean_ms": 3.084,
+          "torchscript_vs_eager_ratio": 1.091,
+          "int8_vs_torchscript_fp32_speedup": 1.127,
+          "int8_vs_eager_fp32_speedup": 1.23,
+          "int8_throughput_improvement_vs_torchscript_fp32": 1.128,
+          "int8_throughput_improvement_vs_eager_fp32": 1.23
+        },
+        "batch_64": {
+          "eager_fp32_mean_ms": 295.118,
+          "torchscript_fp32_mean_ms": 295.056,
+          "torchscript_int8_mean_ms": 186.973,
+          "torchscript_vs_eager_ratio": 1.0,
+          "int8_vs_torchscript_fp32_speedup": 1.578,
+          "int8_vs_eager_fp32_speedup": 1.578,
+          "int8_throughput_improvement_vs_torchscript_fp32": 1.578,
+          "int8_throughput_improvement_vs_eager_fp32": 1.579
+        }
+      }
+    }
+  }
+}

@@ -54,6 +54,11 @@ DEFAULT_CHECKPOINTS = {
     "mobilenet_v3_small_cifar": "experiments/exp_baseline_mobilenet_v3_small_seed42/checkpoints/best_checkpoint.pt",
 }
 
+DEFAULT_INT8_CHECKPOINTS = {
+    "resnet18_cifar": "experiments/checkpoints_int8/resnet18_cifar_int8.pt",
+    "mobilenet_v3_small_cifar": "experiments/checkpoints_int8/mobilenet_v3_small_cifar_int8.pt",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -106,8 +111,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="experiments/robustness_fp32_seed42",
-        help="Directory to store benchmark artifacts (default: experiments/robustness_fp32_seed42).",
+        default=None,
+        help="Directory to store benchmark artifacts (default: experiments/robustness_<precision>_seed42).",
+    )
+    parser.add_argument(
+        "--precision",
+        type=str,
+        default="fp32",
+        choices=["fp32", "fp16", "int8"],
+        help="Model precision for evaluation (default: fp32).",
     )
     parser.add_argument(
         "--smoke-test",
@@ -129,7 +141,8 @@ def parse_args() -> argparse.Namespace:
 
 def run_benchmark(args: argparse.Namespace) -> Path:
     # 1. Output Directory Overwrite Validation (before any heavy initialization or model loading)
-    out_path = Path(args.output_dir)
+    out_dir_str = args.output_dir if args.output_dir is not None else f"experiments/robustness_{args.precision}_seed42"
+    out_path = Path(out_dir_str)
     try:
         validate_output_directory(out_path, overwrite=args.overwrite)
     except FileExistsError as err:
@@ -165,7 +178,14 @@ def run_benchmark(args: argparse.Namespace) -> Path:
     t0_wall = time.perf_counter()
 
     # 3. Resolve Device & Configs
-    device = resolve_evaluation_device(args.device)
+    if args.precision == "int8":
+        device = torch.device("cpu")
+        ckpt_sources = DEFAULT_INT8_CHECKPOINTS
+        print("[*] INT8 mode: enforcing device='cpu' (QNNPACK backend).")
+    else:
+        device = resolve_evaluation_device(args.device)
+        ckpt_sources = DEFAULT_CHECKPOINTS
+
     data_cfg = load_data_config("configs/cifar10.yaml")
     corr_cfg_path = get_default_corruption_config_path()
     corr_cfg = load_corruption_config(corr_cfg_path)
@@ -179,14 +199,14 @@ def run_benchmark(args: argparse.Namespace) -> Path:
     checkpoint_metadata: Dict[str, Any] = {}
 
     for m_arch in args.models:
-        if m_arch not in DEFAULT_CHECKPOINTS:
-            raise ValueError(f"Unknown model architecture '{m_arch}'. Expected one of {list(DEFAULT_CHECKPOINTS.keys())}")
-        ckpt_path = Path(DEFAULT_CHECKPOINTS[m_arch])
+        if m_arch not in ckpt_sources:
+            raise ValueError(f"Unknown model architecture '{m_arch}'. Expected one of {list(ckpt_sources.keys())}")
+        ckpt_path = Path(ckpt_sources[m_arch])
         if not ckpt_path.is_file():
             raise FileNotFoundError(f"Checkpoint file missing: {ckpt_path}")
 
         ckpt_sha256 = compute_file_sha256(ckpt_path)
-        model, raw_ckpt = load_checkpoint_for_evaluation(ckpt_path, device=device)
+        model, raw_ckpt = load_checkpoint_for_evaluation(ckpt_path, device=device, precision=args.precision)
         loaded_models[m_arch] = model
 
         checkpoint_metadata[m_arch] = {
@@ -196,8 +216,9 @@ def run_benchmark(args: argparse.Namespace) -> Path:
             "best_metric_value": raw_ckpt.get("best_metric_value"),
             "best_epoch": raw_ckpt.get("best_epoch"),
             "model_architecture": raw_ckpt.get("model_architecture"),
+            "evaluated_precision": args.precision,
         }
-        print(f"    Loaded {m_arch} (Epoch {raw_ckpt.get('epoch')}, SHA-256: {ckpt_sha256[:12]}...)")
+        print(f"    Loaded {m_arch} ({args.precision.upper()}, Epoch {raw_ckpt.get('epoch')}, SHA-256: {ckpt_sha256[:12]}...)")
 
     # 5. Acquire Raw CIFAR-10 Test Dataset
     eval_transform = get_cifar10_transforms(
@@ -281,6 +302,7 @@ def run_benchmark(args: argparse.Namespace) -> Path:
         "timestamp_start": t_start.isoformat(),
         "timestamp_end": t_end.isoformat(),
         "total_runtime_seconds": round(total_wall_time, 3),
+        "precision": args.precision,
         "seed": args.seed,
         "device": str(device),
         "batch_size": args.batch_size,
@@ -322,7 +344,7 @@ def run_benchmark(args: argparse.Namespace) -> Path:
     )
 
     # 11. Persist Outputs Atomically
-    out_dir = save_robustness_results(benchmark_result, args.output_dir)
+    out_dir = save_robustness_results(benchmark_result, out_dir_str)
     print(f"\n[+] Benchmark outputs successfully persisted to: {out_dir}")
     print(f"    - {out_dir}/metadata.json")
     print(f"    - {out_dir}/results.csv ({len(all_results)} rows)")

@@ -7,6 +7,8 @@ from edge_vision.evaluation.metrics import (
     EvaluationTracker,
 )
 from edge_vision.evaluation.evaluator import (
+    convert_model_to_fp16,
+    export_inference_checkpoint,
     resolve_evaluation_device,
     load_checkpoint_for_evaluation,
     get_evaluation_dataloader,
@@ -31,6 +33,8 @@ from edge_vision.evaluation.robustness import (
 )
 
 __all__ = [
+    "convert_model_to_fp16",
+    "export_inference_checkpoint",
     "EvaluationMetrics",
     "EvaluationTracker",
     "resolve_evaluation_device",

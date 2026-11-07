@@ -200,8 +200,23 @@ def plot_overall_severity_degradation(summary_data: dict, out_path: Path) -> Non
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate robustness figures from benchmark results.")
+    parser.add_argument(
+        "--exp-dir",
+        type=str,
+        default="experiments/robustness_fp32_seed42",
+        help="Path to experiment results directory (default: experiments/robustness_fp32_seed42).",
+    )
+    parser.add_argument(
+        "--reports-dir",
+        type=str,
+        default=None,
+        help="Optional path to copy figures for documentation (default: reports/figures/<precision>).",
+    )
+    args = parser.parse_args()
+
     setup_style()
-    exp_dir = Path("experiments/robustness_fp32_seed42")
+    exp_dir = Path(args.exp_dir)
     if not exp_dir.is_dir():
         raise FileNotFoundError(f"Experiment directory not found: {exp_dir}")
 
@@ -217,8 +232,14 @@ def main() -> None:
     plot_per_corruption_comparison(df, summary_data, plots_dir / "per_corruption_comparison.png")
     plot_overall_severity_degradation(summary_data, plots_dir / "overall_severity_degradation.png")
 
-    # Also copy to reports/figures/robustness/ for project documentation
-    reports_plots_dir = Path("reports/figures/robustness")
+    # Also copy to reports/figures/ for project documentation
+    if args.reports_dir:
+        reports_plots_dir = Path(args.reports_dir)
+    elif "fp16" in exp_dir.name:
+        reports_plots_dir = Path("reports/figures/robustness_fp16")
+    else:
+        reports_plots_dir = Path("reports/figures/robustness")
+
     reports_plots_dir.mkdir(parents=True, exist_ok=True)
     import shutil
     for p in plots_dir.glob("*.png"):

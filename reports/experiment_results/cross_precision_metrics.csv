@@ -1,0 +1,7 @@
+model,display_name,precision,parameters,idealized_param_payload_mb,serialized_bytes,serialized_mb,compression_ratio,clean_accuracy,clean_loss,accuracy_diff_vs_fp32_pp,concordance_pct,mean_corrupted_accuracy,mean_accuracy_drop_pp,mean_relative_accuracy_drop,cpu_lat_th1_b1_ms,cpu_lat_th2_b1_ms,cpu_lat_th4_b1_ms,cpu_thpt_th1_b64_img_s,cpu_thpt_th2_b64_img_s,cpu_thpt_th4_b64_img_s
+resnet18_cifar,ResNet-18,FP32,11173962,44.7,44775947,44.78,1.0,94.78,0.2003,0.0,100.0,65.73,29.049,0.3065,4.404,3.916,3.477,89.5,152.8,216.9
+resnet18_cifar,ResNet-18,FP16,11173962,22.35,22408843,22.41,1.998,94.78,0.2003,0.0,99.99,65.73,29.051,0.3065,,,,,,
+resnet18_cifar,ResNet-18,INT8,11173962,11.17,11296669,11.3,3.964,94.81,0.2003,0.03,99.64,65.76,29.052,0.3064,10.889,5.709,3.084,92.1,177.1,342.3
+mobilenet_v3_small_cifar,MobileNetV3-Small,FP32,1528106,6.11,6249979,6.25,1.0,86.51,0.3896,0.0,100.0,58.83,27.684,0.32,3.782,17.015,23.466,190.6,257.6,244.8
+mobilenet_v3_small_cifar,MobileNetV3-Small,FP16,1528106,3.06,3169467,3.17,1.972,86.49,0.3896,-0.02,99.94,58.82,27.67,0.3199,,,,,,
+mobilenet_v3_small_cifar,MobileNetV3-Small,INT8,1528106,1.53,1942499,1.94,3.217,86.18,0.4117,-0.33,95.47,59.01,27.167,0.3152,0.416,0.429,0.478,3699.4,6808.9,11672.4
