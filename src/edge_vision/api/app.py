@@ -3,6 +3,7 @@ FastAPI application factory and route definitions for the inference REST API.
 """
 
 import logging
+import os
 from pathlib import Path
 import re
 import sys
@@ -10,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from edge_vision.api.schemas import (
@@ -74,15 +76,49 @@ def format_prediction_detail(pred: PredictionResult) -> PredictionDetail:
     )
 
 
-def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
+DEFAULT_CORS_ORIGINS: List[str] = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:4173",
+    "http://localhost:4173",
+]
+
+
+def resolve_cors_origins(extra_origins: Optional[List[str]] = None) -> List[str]:
+    """
+    Resolves the list of permitted CORS origins, combining canonical local origins
+    with optional programmatically supplied or environment-configured origins.
+    Environment variable: EDGE_VISION_CORS_ORIGINS (comma-separated list).
+    """
+    origins = list(DEFAULT_CORS_ORIGINS)
+    env_origins = os.getenv("EDGE_VISION_CORS_ORIGINS") or os.getenv("CORS_ORIGINS")
+    if env_origins:
+        for item in env_origins.split(","):
+            cleaned = item.strip()
+            if cleaned and cleaned not in origins:
+                origins.append(cleaned)
+    if extra_origins:
+        for item in extra_origins:
+            cleaned = item.strip()
+            if cleaned and cleaned not in origins:
+                origins.append(cleaned)
+    return origins
+
+
+def create_app(
+    model_manager: Optional[ModelManager] = None,
+    cors_origins: Optional[List[str]] = None,
+) -> FastAPI:
     """
     Factory function creating and configuring the FastAPI inference application.
 
     Parameters:
         model_manager: Optional custom or pre-initialized ModelManager instance.
                        If None, a fresh ModelManager is created.
+        cors_origins: Optional list of additional allowed CORS origins.
     """
     manager = model_manager if model_manager is not None else ModelManager()
+    allowed_origins = resolve_cors_origins(cors_origins)
 
     app = FastAPI(
         title="Edge Vision Reliability Lab — Inference REST API",
@@ -93,6 +129,14 @@ def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Accept"],
     )
 
     # -------------------------------------------------------------------------

@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 import numpy as np
 from PIL import Image
 import pytest
+import torch
 
 from edge_vision.api.app import create_app, sanitize_message
 from edge_vision.api.schemas import (
@@ -256,6 +257,7 @@ def test_predict_single_image_success(loaded_api_client: TestClient):
     assert data["filename"] == "test_sample.png"
     assert data["model_name"] == "resnet18_cifar"
     assert data["precision"] == "fp32"
+    assert data["device"] == "cpu"
 
     # Prediction details
     pred = data["prediction"]
@@ -274,6 +276,25 @@ def test_predict_single_image_success(loaded_api_client: TestClient):
     assert timing["total_ms"] > 0.0
 
     SinglePredictionResponse(**data)
+
+
+def test_predict_reports_exact_loaded_device(api_client: TestClient):
+    """Verify /predict faithfully reports the exact device configured via /models/load."""
+    target_dev = "mps" if torch.backends.mps.is_available() else "cpu"
+    load_res = api_client.post(
+        "/models/load",
+        json={"model_name": "resnet18_cifar", "precision": "fp32", "device": target_dev},
+    )
+    assert load_res.status_code == 200
+    assert load_res.json()["device"] == target_dev
+
+    img_bytes = make_test_image_bytes(size=(32, 32))
+    pred_res = api_client.post(
+        "/predict",
+        files={"file": ("test_dev.png", img_bytes, "image/png")},
+    )
+    assert pred_res.status_code == 200
+    assert pred_res.json()["device"] == target_dev
 
 
 def test_predict_single_with_resize_behavior(loaded_api_client: TestClient):
@@ -645,3 +666,84 @@ def test_concurrent_predictions_and_model_switching(loaded_api_client: TestClien
     assert switch_code == 200
     for code in predict_codes:
         assert code == 200
+
+
+# =============================================================================
+# 8. CORS Security & Origin Validation Tests
+# =============================================================================
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:4173",
+        "http://localhost:4173",
+    ],
+)
+def test_cors_allowed_origins(api_client: TestClient, origin: str):
+    """Verify that canonical local frontend origins receive CORS permission."""
+    res = api_client.get("/health", headers={"Origin": origin})
+    assert res.status_code == 200
+    assert res.headers.get("access-control-allow-origin") == origin
+    # Credentials must not be exposed
+    assert res.headers.get("access-control-allow-credentials") is None
+
+
+def test_cors_disallowed_origin(api_client: TestClient):
+    """Verify that unauthorized external origins do not receive CORS permission."""
+    disallowed_origin = "http://malicious-external-site.com"
+    res = api_client.get("/health", headers={"Origin": disallowed_origin})
+    assert res.status_code == 200
+    assert "access-control-allow-origin" not in res.headers
+
+
+def test_cors_preflight_options(api_client: TestClient):
+    """Verify OPTIONS preflight request handling for permitted methods and headers."""
+    headers = {
+        "Origin": "http://127.0.0.1:4173",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "Content-Type",
+    }
+    res = api_client.options("/predict", headers=headers)
+    assert res.status_code == 200
+    assert res.headers.get("access-control-allow-origin") == "http://127.0.0.1:4173"
+    allowed_methods = res.headers.get("access-control-allow-methods", "")
+    assert "POST" in allowed_methods
+    allowed_headers = res.headers.get("access-control-allow-headers", "")
+    assert "content-type" in allowed_headers.lower()
+
+
+def test_cors_configurable_via_env(monkeypatch: pytest.MonkeyPatch):
+    """Verify that additional origins can be configured via EDGE_VISION_CORS_ORIGINS env var."""
+    custom_origin = "http://custom-dashboard.internal:3000"
+    monkeypatch.setenv("EDGE_VISION_CORS_ORIGINS", f"{custom_origin}, http://another-host.local:8080")
+
+    app = create_app()
+    client = TestClient(app)
+
+    # Custom origin should be allowed
+    res1 = client.get("/health", headers={"Origin": custom_origin})
+    assert res1.status_code == 200
+    assert res1.headers.get("access-control-allow-origin") == custom_origin
+
+    # Default origins should still be allowed
+    res2 = client.get("/health", headers={"Origin": "http://127.0.0.1:4173"})
+    assert res2.status_code == 200
+    assert res2.headers.get("access-control-allow-origin") == "http://127.0.0.1:4173"
+
+    # Unlisted origin should still be rejected
+    res3 = client.get("/health", headers={"Origin": "http://unauthorized-origin.com"})
+    assert res3.status_code == 200
+    assert "access-control-allow-origin" not in res3.headers
+
+
+def test_cors_configurable_via_argument():
+    """Verify programmatic origin configuration via create_app argument."""
+    arg_origin = "http://direct-arg-host:9000"
+    app = create_app(cors_origins=[arg_origin])
+    client = TestClient(app)
+
+    res = client.get("/health", headers={"Origin": arg_origin})
+    assert res.status_code == 200
+    assert res.headers.get("access-control-allow-origin") == arg_origin
