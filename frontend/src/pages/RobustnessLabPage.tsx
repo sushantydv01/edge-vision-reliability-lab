@@ -1,175 +1,162 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import { Shield } from 'lucide-react';
+import { researchData } from '@/data';
 import {
-  LineChart,
-  Eye,
-  AlertTriangle,
-} from 'lucide-react';
-
-const CORRUPTION_CATEGORIES = {
-  Noise: ['gaussian_noise'],
-  Blur: ['gaussian_blur', 'motion_blur'],
-  Photometric: ['brightness', 'contrast'],
-  Digital: ['jpeg_compression'],
-};
+  RobustnessControls,
+  type RobustnessFilterState,
+} from '@/components/robustness/RobustnessControls';
+import { RobustnessSummarySection } from '@/components/robustness/RobustnessSummarySection';
+import { SeverityDegradationSection } from '@/components/robustness/SeverityDegradationSection';
+import { CorruptionBreakdownSection } from '@/components/robustness/CorruptionBreakdownSection';
+import { PrecisionRobustnessSection } from '@/components/robustness/PrecisionRobustnessSection';
+import { RobustnessMethodologySection } from '@/components/robustness/RobustnessMethodologySection';
 
 export function RobustnessLabPage() {
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedSeverity, setSelectedSeverity] = useState(3);
-  const [selectedModel, setSelectedModel] = useState('resnet18_cifar');
+  const [filters, setFilters] = useState<RobustnessFilterState>({
+    model_id: 'resnet18_cifar',
+    precision: 'fp32',
+    category: 'all',
+    corruption: 'all',
+    severity: 'all',
+  });
+
+  const handleReset = () => {
+    setFilters({
+      model_id: 'resnet18_cifar',
+      precision: 'fp32',
+      category: 'all',
+      corruption: 'all',
+      severity: 'all',
+    });
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-surface-border">
+    <div className="space-y-8 pb-12">
+      {/* 1. Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-surface-border">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-text-primary tracking-tight">
-              Robustness Laboratory (Custom Synthetic Suite)
-            </h2>
-            <Badge variant="accent">Task 5.4 Scaffold</Badge>
+            <h1 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+              Robustness Laboratory
+            </h1>
+            <Badge variant="accent">Module 04</Badge>
           </div>
-          <p className="text-xs text-text-secondary mt-1">
-            Out-of-distribution robustness evaluation across 6 synthetic corruption transformations and 5 severity levels.
+          <p className="text-xs sm:text-sm text-text-secondary mt-1 max-w-4xl leading-relaxed">
+            Systematic empirical evaluation of model resilience and failure boundaries across 6 custom synthetic corruption transformations and 5 progressive severity levels (30 conditions, 300,000 forward passes per model configuration).
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono">
-            6 Corruptions × 5 Severities (30 Conditions)
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <Badge variant="outline" className="text-text-muted">
+            30 Conditions / Config
+          </Badge>
+          <Badge variant="purple" className="text-purple-400">
+            Seed 42 (Deterministic)
           </Badge>
         </div>
       </div>
 
-      {/* Exploration Controls Bar */}
-      <Card className="p-4 bg-surface-secondary/50 border-surface-border">
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
-          <Select
-            label="Evaluation Architecture"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            options={[
-              { value: 'resnet18_cifar', label: 'ResNet-18 (Deep Residual)' },
-              { value: 'mobilenet_v3_small_cifar', label: 'MobileNetV3-Small (Inverted Bottleneck)' },
-            ]}
-          />
-
-          <Select
-            label="Corruption Category"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            options={[
-              { value: 'All', label: 'All Categories (6 Corruptions)' },
-              { value: 'Noise', label: 'Noise (Gaussian Noise)' },
-              { value: 'Blur', label: 'Blur (Gaussian Blur, Motion Blur)' },
-              { value: 'Photometric', label: 'Photometric (Brightness, Contrast)' },
-              { value: 'Digital', label: 'Digital (JPEG Compression)' },
-            ]}
-          />
-
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-medium text-text-secondary">Severity Level:</span>
-              <span className="font-mono text-accent font-semibold">Level {selectedSeverity} / 5</span>
-            </div>
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map((lvl) => (
-                <button
-                  key={lvl}
-                  onClick={() => setSelectedSeverity(lvl)}
-                  className={`flex-1 py-1.5 rounded text-xs font-mono font-medium transition-all ${
-                    selectedSeverity === lvl
-                      ? 'bg-accent text-white font-bold shadow-xs'
-                      : 'bg-surface border border-surface-border text-text-secondary hover:text-text-primary hover:bg-surface-hover'
-                  }`}
-                >
-                  {lvl}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Button
-              variant="default"
-              className="w-full text-xs font-semibold"
-              disabled
-              title="Active exploration connected in Task 5.4"
-            >
-              <Eye className="w-3.5 h-3.5 mr-1 text-accent" />
-              Analyze Category
-            </Button>
-          </div>
+      {/* Analytical Focus Guidance Banner */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-surface-secondary/70 via-surface-secondary/40 to-surface-secondary/70 border border-surface-border text-xs text-text-secondary space-y-1.5">
+        <div className="flex items-center gap-2 text-text-primary font-bold">
+          <Shield className="w-4 h-4 text-accent shrink-0" />
+          <span>Core Robustness Inquiry & Stress-Testing Framework:</span>
         </div>
-      </Card>
-
-      {/* Visual Corruptions Taxonomy Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Object.entries(CORRUPTION_CATEGORIES).map(([cat, corruptions]) => (
-          <Card key={cat} className="p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-surface-border pb-2">
-              <span className="text-xs font-semibold text-text-primary tracking-tight">{cat}</span>
-              <Badge variant="outline" className="text-[10px]">{corruptions.length} {corruptions.length === 1 ? 'type' : 'types'}</Badge>
-            </div>
-            <ul className="space-y-1.5">
-              {corruptions.map((c) => (
-                <li
-                  key={c}
-                  className="text-[11px] font-mono text-text-secondary flex items-center justify-between py-1 px-1.5 rounded hover:bg-surface-hover/50"
-                >
-                  <span>{c}</span>
-                  <span className="text-[10px] text-text-muted">Sev. 1–5</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ))}
+        <p className="text-[11px] leading-relaxed text-text-secondary pl-6">
+          <em>How much visual distortion can each architecture tolerate before accuracy collapses? Which degradation modes inflict the highest damage? Does post-training quantization to INT8 or FP16 compromise corruption resilience? Which architecture maintains superior stability under specific environmental artifacts?</em> Empirical evaluations reveal that <strong>quantized models preserve or marginally improve robustness</strong> over FP32 baselines, and compact architectures exhibit distinct inductive strengths—such as MobileNetV3-Small outperforming ResNet-18 under JPEG compression (69.66% vs 67.83%).
+        </p>
       </div>
 
-      {/* Degradation Curves Chart Placeholder */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-sm">
-                Custom Suite Degradation Curves (Severity 1 to 5)
-              </CardTitle>
-              <CardDescription>
-                Contrasting clean test accuracy against corrupted accuracy across 5 discrete severity levels
-              </CardDescription>
-            </div>
-            <Badge variant="outline">Task 5.4 Visualization</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64 border border-dashed border-surface-border rounded-lg flex flex-col items-center justify-center text-center p-6 bg-surface-secondary/20">
-            <LineChart className="w-10 h-10 text-text-muted mb-3" />
-            <span className="text-sm font-semibold text-text-primary">
-              Custom Synthetic Degradation Curves Placeholder
-            </span>
-            <p className="text-xs text-text-secondary max-w-md mt-1 leading-relaxed">
-              In Task 5.4, this interactive Recharts module will plot measured corrupted accuracy across all 6 transformations
-              (Gaussian noise, Gaussian blur, motion blur, brightness, contrast, JPEG compression) directly from historical experiment logs.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Documented Methodology Limitations */}
-      <div className="p-4 rounded-lg bg-surface-secondary/40 border border-surface-border space-y-2 text-xs">
-        <div className="flex items-center gap-2 text-text-primary font-semibold">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>Custom Synthetic Suite Methodology & Documented Limitations</span>
-        </div>
-        <ul className="space-y-1 text-text-secondary text-[11px] list-disc list-inside">
-          <li><strong>Horizontal motion blur only:</strong> Motion blur evaluates horizontal camera displacement using linear 1D convolution kernels.</li>
-          <li><strong>Darkening-only brightness:</strong> The brightness operator attenuates pixel intensities across factors [0.30, 0.90] (illumination loss) without overexposure modeling.</li>
-          <li><strong>Generalization boundary:</strong> The suite evaluates algorithmic sensitivity to controlled mathematical perturbations and does not establish real-world out-of-distribution generalization.</li>
-        </ul>
+      {/* Quick Jump Sub-Navigation Bar */}
+      <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-lg bg-surface-secondary/40 border border-surface-border font-mono text-xs text-text-muted">
+        <span className="text-[10px] uppercase font-bold text-text-primary px-2">Jump To:</span>
+        <a
+          href="#controls"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Controls (Sec A)
+        </a>
+        <a
+          href="#summary"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Reliability Summary (Sec B)
+        </a>
+        <a
+          href="#severity"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Severity Trajectory (Sec C)
+        </a>
+        <a
+          href="#corruptions"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Corruption Breakdown (Sec D)
+        </a>
+        <a
+          href="#precision"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Precision Stability (Sec E)
+        </a>
+        <a
+          href="#methodology"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Methodology (Sec F)
+        </a>
       </div>
+
+      {/* Section A: Exploration Controls */}
+      <section id="controls" className="space-y-4 pt-2">
+        <RobustnessControls
+          filters={filters}
+          onChange={setFilters}
+          onReset={handleReset}
+          suite={researchData.robustnessSuite}
+          precisionVariants={researchData.precisionVariants}
+        />
+      </section>
+
+      {/* Section B: Robustness Summary */}
+      <section id="summary" className="space-y-4 pt-2">
+        <RobustnessSummarySection
+          filters={filters}
+          suite={researchData.robustnessSuite}
+        />
+      </section>
+
+      {/* Section C: Severity Degradation Trajectory */}
+      <section id="severity" className="space-y-4 pt-2">
+        <SeverityDegradationSection
+          filters={filters}
+          suite={researchData.robustnessSuite}
+        />
+      </section>
+
+      {/* Section D: Corruption Breakdown */}
+      <section id="corruptions" className="space-y-4 pt-2">
+        <CorruptionBreakdownSection
+          filters={filters}
+          suite={researchData.robustnessSuite}
+        />
+      </section>
+
+      {/* Section E: Precision Robustness Comparison */}
+      <section id="precision" className="space-y-4 pt-2">
+        <PrecisionRobustnessSection
+          filters={filters}
+          suite={researchData.robustnessSuite}
+          precisionVariants={researchData.precisionVariants}
+        />
+      </section>
+
+      {/* Section F: Experimental Methodology & Limitations */}
+      <section id="methodology" className="space-y-4 pt-2">
+        <RobustnessMethodologySection />
+      </section>
     </div>
   );
 }
