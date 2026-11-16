@@ -1,0 +1,47 @@
+[
+  {
+    "id": "airplane",
+    "label": "Airplane",
+    "ground_truth": "airplane",
+    "filename": "sample_airplane.png",
+    "path": "/samples/sample_airplane.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "id": "automobile",
+    "label": "Automobile",
+    "ground_truth": "automobile",
+    "filename": "sample_automobile.png",
+    "path": "/samples/sample_automobile.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "id": "cat",
+    "label": "Cat",
+    "ground_truth": "cat",
+    "filename": "sample_cat.png",
+    "path": "/samples/sample_cat.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "id": "frog",
+    "label": "Frog",
+    "ground_truth": "frog",
+    "filename": "sample_frog.png",
+    "path": "/samples/sample_frog.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "id": "ship",
+    "label": "Ship",
+    "ground_truth": "ship",
+    "filename": "sample_ship.png",
+    "path": "/samples/sample_ship.png",
+    "width": 32,
+    "height": 32
+  }
+]
