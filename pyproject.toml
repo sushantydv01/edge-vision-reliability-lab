@@ -21,6 +21,10 @@ dependencies = [
     "plotly",
     "pytest",
     "psutil",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "httpx",
 ]
 
 [tool.setuptools.packages.find]

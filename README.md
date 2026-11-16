@@ -485,6 +485,139 @@ Results are saved to:
 - **Statistical Limitation**: The benchmark runner computes and reports 95th-percentile (p95) latency via linear interpolation across 10 repetitions per configuration. However, with a sample size of $N = 10$, this metric is sample-limited and cannot be interpreted as a high-confidence tail-latency or SLA guarantee.
 - **Future Formal Profiling**: Formal tail-latency characterization or SLA profiling should execute at least 30 to 100 repetitions under strict OS-level isolation.
 
+### REST Inference API (Task 4.5)
+
+A high-performance local REST API built with FastAPI that exposes the unified inference engine and artifact registry to client applications.
+
+#### Architecture & Design
+- **Dedicated Package**: Located in [`src/edge_vision/api/`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/api/).
+- **Decoupled Application Factory**: `create_app()` instantiates and configures the FastAPI application independently of the server runner, enabling isolated unit testing without socket binding.
+- **Model Lifecycle & Thread Safety (`ModelManager`)**:
+  - Models are loaded into memory once and reused across requests.
+  - Model switching (`POST /models/load`) is atomic: the target model is loaded and verified in a temporary container before acquiring a thread lock (`threading.RLock`) to swap the resident engine pointer. If loading fails, the active model remains resident and unharmed.
+  - Concurrent inference and switching are serialized via reentrant locking, preventing race conditions or corrupted internal tensor states.
+- **Error Sanitization**: Error messages strip internal host filesystem paths and tracebacks to prevent information disclosure.
+- **Zero Duplicate Registries**: Directly leverages `ArtifactRegistry` and `InferenceEngine` abstractions.
+
+#### Server Launch
+
+```bash
+# Launch server bound to localhost on port 8000
+uvicorn edge_vision.api.main:app --host 127.0.0.1 --port 8000
+
+# Or run entrypoint directly
+python -m edge_vision.api.main --host 127.0.0.1 --port 8000
+```
+
+> [!NOTE]
+> The server binds strictly to localhost (`127.0.0.1`) by default for local development and demonstration. Interactive OpenAPI documentation is accessible at `http://127.0.0.1:8000/docs`.
+
+#### Endpoints & Example Curl Commands
+
+##### 1. Service Health (`GET /health`)
+Does not trigger expensive model loading.
+
+```bash
+curl -s http://127.0.0.1:8000/health
+```
+
+Example response (model loaded):
+```json
+{
+  "status": "healthy",
+  "model_loaded": true,
+  "model_name": "resnet18_cifar",
+  "precision": "fp32",
+  "device": "cpu",
+  "backend": "pytorch_eager"
+}
+```
+
+##### 2. List Supported Models (`GET /models`)
+Queries `ArtifactRegistry` without loading checkpoints.
+
+```bash
+curl -s http://127.0.0.1:8000/models
+```
+
+##### 3. Get Active Model Metadata (`GET /models/current`)
+
+```bash
+curl -s http://127.0.0.1:8000/models/current
+```
+
+##### 4. Load or Switch Model (`POST /models/load`)
+
+```bash
+# Load MobileNetV3-Small INT8 on CPU
+curl -s -X POST http://127.0.0.1:8000/models/load \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "mobilenet_v3_small_cifar", "precision": "int8", "device": "cpu"}'
+
+# Load ResNet-18 FP16 on Apple Silicon MPS
+curl -s -X POST http://127.0.0.1:8000/models/load \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "resnet18_cifar", "precision": "fp16", "device": "mps"}'
+```
+
+##### 5. Single Image Prediction (`POST /predict`)
+Uploads a single image via `multipart/form-data`. Supports optional `resize` and `top_k` query parameters.
+
+```bash
+# Single image inference with top-3 predictions and automatic resizing enabled
+curl -s -X POST "http://127.0.0.1:8000/predict?resize=true&top_k=3" \
+  -F "file=@path/to/sample.png"
+```
+
+Example response:
+```json
+{
+  "status": "success",
+  "filename": "sample.png",
+  "prediction": {
+    "predicted_class": "frog",
+    "class_index": 6,
+    "confidence": 0.8924,
+    "probabilities": { "airplane": 0.0012, "frog": 0.8924, "deer": 0.0541 },
+    "logits": [ -2.14, 5.82, 0.41, 0.12, -0.98, -1.22, 6.74, 1.25, -3.11, -0.55 ],
+    "top_k": [
+      { "rank": 1, "class_name": "frog", "confidence": 0.8924 },
+      { "rank": 2, "class_name": "deer", "confidence": 0.0541 },
+      { "rank": 3, "class_name": "bird", "confidence": 0.0215 }
+    ]
+  },
+  "timing_ms": {
+    "preprocess_ms": 1.245,
+    "forward_ms": 4.882,
+    "postprocess_ms": 0.154,
+    "total_ms": 6.281
+  },
+  "model_name": "mobilenet_v3_small_cifar",
+  "precision": "int8",
+  "device": "cpu"
+}
+```
+
+##### 6. Bounded Batch Prediction (`POST /predict/batch`)
+Uploads multiple images in one multipart request, strictly preserving input ordering.
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/predict/batch?resize=true&top_k=5" \
+  -F "files=@image1.png" \
+  -F "files=@image2.png" \
+  -F "files=@image3.png"
+```
+
+#### Upload Constraints & Safety Limits
+- **Maximum File Size**: 10 MB per image upload (`MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024`).
+- **Bounded Streaming Uploads**: File content is read asynchronously in 64 KB chunks (`CHUNK_SIZE_BYTES = 64 * 1024`). Reading halts immediately once the 10 MB ceiling is breached to prevent buffer accumulation.
+- **Maximum Spatial Dimensions**: Rejects images where either spatial dimension exceeds 2048 pixels (`MAX_IMAGE_DIMENSION = 2048`) or is non-positive before allocating complete raster arrays.
+- **Aggregate Batch Ceiling**: Bounded to 64 MB total across all files in a single batch request (`MAX_AGGREGATE_BATCH_BYTES = 64 * 1024 * 1024`), enforced per-chunk during ingestion.
+- **Bounded Batch Count**: Up to 64 images per batch request (`MAX_BATCH_SIZE = 64`). Requests exceeding 64 images are rejected with HTTP 400.
+- **Supported Formats**: PNG, JPG, JPEG, BMP, WEBP, TIFF.
+- **Resource Management**: File handles are closed asynchronously in `finally:` blocks. Image tensors and PIL objects are unreferenced immediately after forward execution to prevent heap bloat.
+- **Spooling Note**: Bounded chunk reading protects application heap memory against excessive allocations; however, Starlette's multipart parser spools requests before endpoint execution. Complete HTTP wire-level protection against oversized payloads requires an edge reverse proxy.
+
 ### Key Operational Limitations
 1. **Device Boundaries**: INT8 post-training quantized artifacts execute exclusively on CPU via QNNPACK; Apple Silicon MPS does not support PyTorch quantized operators.
 2. **CPU FP16 Performance**: In PyTorch on ARM64 CPU, FP16 inference exhibits substantial empirical slowdown compared to FP32. For accelerated FP16 inference, Apple Silicon MPS is strongly recommended.
