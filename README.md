@@ -70,12 +70,12 @@ edge-vision-reliability-lab/
 ## Getting Started
 
 1. **Prerequisites**:
-   - Python 3.12 (installed at `/opt/homebrew/bin/python3.12`)
-   - Apple Silicon Mac (M-series, e.g., M3)
+   - Python 3.12 (`python3.12` or `python3`)
+   - Apple Silicon Mac (M-series, e.g., M3) or compatible environment
 
 2. **Setup Virtual Environment & Install Dependencies**:
    ```bash
-   /opt/homebrew/bin/python3.12 -m venv .venv
+   python3.12 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements-lock.txt
    ```
@@ -490,7 +490,7 @@ Results are saved to:
 A high-performance local REST API built with FastAPI that exposes the unified inference engine and artifact registry to client applications.
 
 #### Architecture & Design
-- **Dedicated Package**: Located in [`src/edge_vision/api/`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/api/).
+- **Dedicated Package**: Located in [`src/edge_vision/api/`](src/edge_vision/api/).
 - **Decoupled Application Factory**: `create_app()` instantiates and configures the FastAPI application independently of the server runner, enabling isolated unit testing without socket binding.
 - **Model Lifecycle & Thread Safety (`ModelManager`)**:
   - Models are loaded into memory once and reused across requests.
@@ -622,3 +622,38 @@ curl -s -X POST "http://127.0.0.1:8000/predict/batch?resize=true&top_k=5" \
 1. **Device Boundaries**: INT8 post-training quantized artifacts execute exclusively on CPU via QNNPACK; Apple Silicon MPS does not support PyTorch quantized operators.
 2. **CPU FP16 Performance**: In PyTorch on ARM64 CPU, FP16 inference exhibits substantial empirical slowdown compared to FP32. For accelerated FP16 inference, Apple Silicon MPS is strongly recommended.
 3. **Platform Portability**: CPU benchmark results measured on Apple Silicon ARM64 reflect Apple M3 microarchitectural characteristics and do not generalize to x86 or server processors.
+
+---
+
+## Frontend Research Dashboard (Milestone 5)
+
+An interactive, responsive research analytics dashboard built with React, Vite, TypeScript, Tailwind CSS, and Recharts.
+
+### Analytical Modules & Routes
+
+1. **Research Overview** (`/`): Executive research summary, precision variant matrix, baseline comparison, robustness severity curves, key empirical findings, and methodology limitations.
+2. **Live Inference Workstation** (`/inference`): Connects to the local FastAPI backend (`http://127.0.0.1:8000`) for model loading, single-image inference with preprocessing and top-$k$ prediction, and cross-model comparison.
+3. **Model Comparison Dashboard** (`/comparison`): Multi-architecture analytical comparison covering clean accuracy, corrupted reliability, CPU/MPS latency, memory footprints, and Pareto trade-offs.
+4. **Robustness Laboratory** (`/robustness`): Granular degradation inspection across 6 synthetic corruption categories and 5 severity levels, with severity-curve profiling and vulnerability matrices.
+5. **Efficiency Explorer** (`/efficiency`): Interactive deployment efficiency analysis with multi-metric normalization, storage compression, CPU vs. MPS scaling, and Pareto frontier optimization.
+
+### Running the Frontend
+
+```bash
+# 1. Navigate to frontend directory
+cd frontend
+
+# 2. Install dependencies
+npm install
+
+# 3. Launch development server (with hot module replacement)
+npm run dev
+# Accessible at: http://127.0.0.1:5173
+
+# 4. Build for production (with route-level code splitting and manual vendor chunking)
+npm run build
+
+# 5. Preview production build locally
+npm run preview
+# Accessible at: http://127.0.0.1:4173
+```

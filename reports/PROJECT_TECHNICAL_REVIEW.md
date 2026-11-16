@@ -130,40 +130,40 @@ edge-vision-reliability-lab/
 ## 4. Detailed Module-by-Module Technical Audit
 
 ### 4.1 Data Pipeline Layer (`src/edge_vision/data/`)
-- **Shared Underlying Memory Architecture**: Standard PyTorch subsetting often duplicates memory or applies transforms naively. In [`dataset.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/data/dataset.py#L31-L58), `TransformedSubset` implements an indexed view over a single `torchvision.datasets.CIFAR10` instance. The 153.6 MB raw NumPy array (`50000 x 32 x 32 x 3` uint8) resides in memory exactly once. Both the 45,000-sample training subset and 5,000-sample validation subset index into this shared array. Note that while underlying array storage is shared, per-sample `Image.fromarray` and torchvision transformations allocate memory dynamically during iteration.
-- **Split Determinism and Verification**: In [`splits.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/data/splits.py#L124-L188), split generation uses `torch.Generator().manual_seed(seed)` and `torch.randperm(50000)`. Partition integrity is validated by enforcing $L_{\text{train}} + L_{\text{val}} = L_{\text{total}}$, $\text{len}(\text{train} \cap \text{val}) = 0$, and $\text{len}(\text{train} \cup \text{val}) = 50,000$.
-- **Compact Manifest Design**: Unlike initial naive implementations that dumped 50,000 raw integer indices into a 526 KB JSON file, [`configs/cifar10_split_manifest.json`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/configs/cifar10_split_manifest.json) stores metadata, sample boundary checks (first/last 5 indices), and binary SHA-256 checksums of the packed little-endian index arrays (`struct.pack(f"<{len(indices)}I", *indices)`). This reduces manifest storage to **795 bytes** while enabling tamper-evident detection of PRNG drift across different PyTorch releases.
+- **Shared Underlying Memory Architecture**: Standard PyTorch subsetting often duplicates memory or applies transforms naively. In [`dataset.py`](src/edge_vision/data/dataset.py#L31-L58), `TransformedSubset` implements an indexed view over a single `torchvision.datasets.CIFAR10` instance. The 153.6 MB raw NumPy array (`50000 x 32 x 32 x 3` uint8) resides in memory exactly once. Both the 45,000-sample training subset and 5,000-sample validation subset index into this shared array. Note that while underlying array storage is shared, per-sample `Image.fromarray` and torchvision transformations allocate memory dynamically during iteration.
+- **Split Determinism and Verification**: In [`splits.py`](src/edge_vision/data/splits.py#L124-L188), split generation uses `torch.Generator().manual_seed(seed)` and `torch.randperm(50000)`. Partition integrity is validated by enforcing $L_{\text{train}} + L_{\text{val}} = L_{\text{total}}$, $\text{len}(\text{train} \cap \text{val}) = 0$, and $\text{len}(\text{train} \cup \text{val}) = 50,000$.
+- **Compact Manifest Design**: Unlike initial naive implementations that dumped 50,000 raw integer indices into a 526 KB JSON file, [`configs/cifar10_split_manifest.json`](configs/cifar10_split_manifest.json) stores metadata, sample boundary checks (first/last 5 indices), and binary SHA-256 checksums of the packed little-endian index arrays (`struct.pack(f"<{len(indices)}I", *indices)`). This reduces manifest storage to **795 bytes** while enabling tamper-evident detection of PRNG drift across different PyTorch releases.
 - **Stale Manifest Protection**: If the user modifies the seed in `configs/cifar10.yaml`, `get_or_create_split_indices()` detects that `manifest["seed"] != seed` and regenerates the split dynamically rather than silently reusing mismatched indices.
 
 ### 4.2 Model Architecture Layer (`src/edge_vision/models/`)
-- **CIFAR-Adapted ResNet-18** ([`resnet.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/models/resnet.py)):
+- **CIFAR-Adapted ResNet-18** ([`resnet.py`](src/edge_vision/models/resnet.py)):
   - ImageNet ResNet-18 uses a $7\times 7$ conv ($s=2$) and a $3\times 3$ maxpool ($s=2$), downsampling $224\times 224$ inputs by a factor of 4 before `layer1`. On $32\times 32$ CIFAR-10 images, this stem would prematurely reduce spatial resolution to $8\times 8$.
   - Adaptation: `conv1` is replaced with `nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)`, `maxpool` is replaced with `nn.Identity()`, and `fc` is replaced with `nn.Linear(512, num_classes)`.
   - Spatial progression: $32\times 32$ (stem, `layer1`) $\to 16\times 16$ (`layer2`) $\to 8\times 8$ (`layer3`) $\to 4\times 4$ (`layer4`) $\to 1\times 1$ (`avgpool`).
   - Total Parameters: **11,173,962** (all trainable, 44.70 MB FP32 parameter footprint).
-- **CIFAR-Adapted MobileNetV3-Small** ([`mobilenet.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/models/mobilenet.py)):
+- **CIFAR-Adapted MobileNetV3-Small** ([`mobilenet.py`](src/edge_vision/models/mobilenet.py)):
   - Standard ImageNet MobileNetV3-Small has 5 stride-2 stages, downsampling inputs by a factor of 32. On $32\times 32$ images, spatial resolution collapses to $1\times 1$ at inverted residual block 8 (`features[9]`). This causes `BatchNorm2d` in training mode to fail when batch size is 1 ($N \times H \times W = 1 \times 1 \times 1 = 1$, violating the variance calculation requirement of $>1$ element).
   - Adaptation: Stride of stem conv is modified from 2 to 1 (`features[0][0].stride = (1, 1)`). All 11 inverted residual blocks, internal squeeze-and-excitation modules, Hardswish activations, and the pre-pooling pointwise conv (`features[12]`) remain untouched. Classifier projection `classifier[3]` is replaced with `nn.Linear(1024, num_classes)`.
   - Spatial progression: $32\times 32$ (`features[0]`) $\to 16\times 16$ (`features[1]`) $\to 8\times 8$ (`features[2-3]`) $\to 4\times 4$ (`features[4-8]`) $\to 2\times 2$ (`features[9-12]`) $\to 1\times 1$ (`avgpool`).
   - Total Parameters: **1,528,106** (all trainable, 6.11 MB FP32 parameter footprint).
-- **Model Factory & Metadata** ([`factory.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/models/factory.py), [`metadata.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/models/metadata.py)):
+- **Model Factory & Metadata** ([`factory.py`](src/edge_vision/models/factory.py), [`metadata.py`](src/edge_vision/models/metadata.py)):
   - Factory dynamically instantiates models via `get_model(name, num_classes=10)`. Calling an unknown model raises `KeyError` listing valid registered options.
   - Parameter counter directly aggregates `p.numel()` and calculates memory in bytes, decimal MB ($10^6$ bytes), and binary MiB ($2^{20}$ bytes).
 
 ### 4.3 Training Infrastructure Layer (`src/edge_vision/training/`)
-- **Strict Test-Set Isolation Safeguard**: In [`data.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/training/data.py#L22-L105) and [`trainer.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/training/trainer.py#L38-L43), `Trainer` accepts strictly `train_loader` and `val_loader`. Passing any object with a `.test` attribute or passing the full `CIFAR10DataLoaders` container raises a runtime `TypeError`. The test set is completely isolated from training, hyperparameter tuning, and checkpoint selection.
-- **Reproducibility & Dedicated DataLoader Generator**: In [`seeding.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/training/seeding.py), `set_seed()` configures Python `random`, NumPy, PyTorch CPU, and Apple Silicon MPS. Crucially, `get_rng_states()` and `set_rng_states()` capture and restore the state of the dedicated `torch.Generator` assigned to `train_loader`. This enables verified **epoch-boundary resume equivalence**.
-- **Sample-Weighted Loss Aggregation**: In [`metrics.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/training/metrics.py#L48-L82), `MetricTracker` computes epoch loss as:
+- **Strict Test-Set Isolation Safeguard**: In [`data.py`](src/edge_vision/training/data.py#L22-L105) and [`trainer.py`](src/edge_vision/training/trainer.py#L38-L43), `Trainer` accepts strictly `train_loader` and `val_loader`. Passing any object with a `.test` attribute or passing the full `CIFAR10DataLoaders` container raises a runtime `TypeError`. The test set is completely isolated from training, hyperparameter tuning, and checkpoint selection.
+- **Reproducibility & Dedicated DataLoader Generator**: In [`seeding.py`](src/edge_vision/training/seeding.py), `set_seed()` configures Python `random`, NumPy, PyTorch CPU, and Apple Silicon MPS. Crucially, `get_rng_states()` and `set_rng_states()` capture and restore the state of the dedicated `torch.Generator` assigned to `train_loader`. This enables verified **epoch-boundary resume equivalence**.
+- **Sample-Weighted Loss Aggregation**: In [`metrics.py`](src/edge_vision/training/metrics.py#L48-L82), `MetricTracker` computes epoch loss as:
   $$\mathcal{L}_{\text{epoch}} = \frac{\sum_{i=1}^{B} \mathcal{L}_i \cdot N_i}{\sum_{i=1}^{B} N_i}$$
   preventing skew when the final batch has fewer than 64 samples.
-- **Atomic Checkpoint Persistence**: In [`checkpoint.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/training/checkpoint.py#L47-L61), checkpoints are written to a process-unique temporary file (`<path>.tmp.<pid>`) and atomically replaced via `os.replace`. If an unhandled exception or process termination occurs during serialization, destination checkpoints are never left in a corrupted or half-written state.
+- **Atomic Checkpoint Persistence**: In [`checkpoint.py`](src/edge_vision/training/checkpoint.py#L47-L61), checkpoints are written to a process-unique temporary file (`<path>.tmp.<pid>`) and atomically replaced via `os.replace`. If an unhandled exception or process termination occurs during serialization, destination checkpoints are never left in a corrupted or half-written state.
 - **Dual Checkpoint Tracking**: Tracks `latest_checkpoint.pt` (updated after every epoch for fault recovery) and `best_checkpoint.pt` (updated strictly on validation metric improvements; higher validation accuracy wins; lower validation loss tie-breaks).
 
 ### 4.4 Standalone Evaluation Layer (`src/edge_vision/evaluation/`)
-- **Strict Architecture Reconstruction & State Loading**: In [`evaluator.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/evaluation/evaluator.py), `load_checkpoint_for_evaluation()` extracts configuration metadata from the checkpoint or arguments, reconstructs the identical model architecture via `get_model()`, and strictly applies weights via `model.load_state_dict(checkpoint["model_state_dict"], strict=True)`. Any key mismatch immediately aborts execution.
+- **Strict Architecture Reconstruction & State Loading**: In [`evaluator.py`](src/edge_vision/evaluation/evaluator.py), `load_checkpoint_for_evaluation()` extracts configuration metadata from the checkpoint or arguments, reconstructs the identical model architecture via `get_model()`, and strictly applies weights via `model.load_state_dict(checkpoint["model_state_dict"], strict=True)`. Any key mismatch immediately aborts execution.
 - **Strictly Unaugmented Transforms**: Evaluator uses `get_evaluation_dataloader()`, which strictly constructs an unaugmented `TransformedSubset` using CIFAR-10 canonical normalization, completely bypassing training-time random crop and horizontal flip.
 - **Inference Mode & Model Freeze**: Model is placed in `model.eval()`, all parameters are frozen (`param.requires_grad = False`), and batches are processed inside `torch.inference_mode()`, preventing gradient overhead and ensuring frozen BatchNorm running statistics.
-- **Comprehensive Metric Aggregation & Mathematical Checks**: In [`metrics.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/src/edge_vision/evaluation/metrics.py), `EvaluationTracker` computes sample-weighted loss, overall top-1 accuracy, per-class counts and accuracy, and a $10 \times 10$ confusion matrix. It strictly enforces mathematical integrity assertions: $\sum_{i,j} C_{i,j} = N$ and $\text{trace}(C) = N_{\text{correct}}$.
+- **Comprehensive Metric Aggregation & Mathematical Checks**: In [`metrics.py`](src/edge_vision/evaluation/metrics.py), `EvaluationTracker` computes sample-weighted loss, overall top-1 accuracy, per-class counts and accuracy, and a $10 \times 10$ confusion matrix. It strictly enforces mathematical integrity assertions: $\sum_{i,j} C_{i,j} = N$ and $\text{trace}(C) = N_{\text{correct}}$.
 - **Atomic Report Persistence**: Evaluator exports structured JSON reports atomically (`os.replace` over temporary files) with complete metadata including git commit, timestamp, device, split, and per-class performance tables.
 
 ---
@@ -171,7 +171,7 @@ edge-vision-reliability-lab/
 ## 5. Review of Existing Experiments & Measured Results
 
 ### 5.1 Hardware Smoke Test (Pilot A) Benchmarks
-Conducted on the Apple M3 processor using [`scripts/smoke_test_hardware.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/scripts/smoke_test_hardware.py) with 5 training batches and 2 validation batches ($B=64$):
+Conducted on the Apple M3 processor using [`scripts/smoke_test_hardware.py`](scripts/smoke_test_hardware.py) with 5 training batches and 2 validation batches ($B=64$):
 
 ```
 +--------------------------+--------+------------------+-----------------+--------------+-----------------+
@@ -193,7 +193,7 @@ To prevent misleading claims in documentation, our measurements strictly separat
 - **System Unified Memory / Swap**: Total macOS memory state (host has 8 GB total unified memory; during testing ~1.7–1.9 GB was available, with 2.6–3.6 GB in compressed swap).
 
 ### 5.2 5-Epoch Convergence Pilot (Pilot B on MPS)
-Conducted across the full 45,000 training images and 5,000 validation images using the controlled baseline recipe (SGD momentum 0.9, lr 0.05, weight decay $5 \times 10^{-4}$, CosineAnnealingLR, batch size 64). Results are stored in [`reports/experiment_results/`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/reports/experiment_results):
+Conducted across the full 45,000 training images and 5,000 validation images using the controlled baseline recipe (SGD momentum 0.9, lr 0.05, weight decay $5 \times 10^{-4}$, CosineAnnealingLR, batch size 64). Results are stored in [`reports/experiment_results/`](reports/experiment_results):
 
 #### ResNet-18 Convergence Profile
 - **Epoch 1**: Train Loss: `1.6564` (Acc: `39.43%`) | Val Loss: `1.2251` (Acc: `55.68%`) | 103.1s | 450.0 samples/s | RSS: 254.7 MB
@@ -265,7 +265,7 @@ The repository contains 78 automated tests executing in **~13.5 seconds**:
 - `tests/test_evaluation.py` (11 tests): Validates standalone metric accumulation, empty tracker handling, strict state dict loading, evaluation/inference mode enforcement, CPU vs MPS numeric parity, atomic report persistence, and test-set isolation.
 
 ### Deep Review of Epoch-Boundary Resume Equivalence Test
-In [`test_training.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/tests/test_training.py#L327-L417), `test_epoch_boundary_resume_equivalence`:
+In [`test_training.py`](tests/test_training.py#L327-L417), `test_epoch_boundary_resume_equivalence`:
 - Uses a synthetic dataset and model to run 2 full epochs continuously (Run A).
 - Runs 1 epoch, saves a complete checkpoint including captured RNG states and `train_loader.generator` state, re-initializes from scratch, restores checkpoint state, and executes Epoch 2 (Run B).
 - Compares:

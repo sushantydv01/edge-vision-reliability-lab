@@ -374,8 +374,8 @@ Based on the empirical evidence gathered across all 31 conditions, 3 precision l
 ## 10. Summary Data Artifacts
 
 All underlying numerical data and figures have been consolidated and persisted:
-- **Comprehensive Metrics CSV**: [`reports/experiment_results/cross_precision_metrics.csv`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/reports/experiment_results/cross_precision_metrics.csv)
-- **Consolidated Summary JSON**: [`reports/experiment_results/cross_precision_summary.json`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/reports/experiment_results/cross_precision_summary.json)
-- **Publication Visualizations**: [`reports/figures/cross_precision/`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/reports/figures/cross_precision/)
-- **Test Suite**: [`tests/test_cross_precision_analysis.py`](file:///Users/sushantydv01/Desktop/edge-vision-reliability-lab/tests/test_cross_precision_analysis.py) (153 total passing tests).
+- **Comprehensive Metrics CSV**: [`reports/experiment_results/cross_precision_metrics.csv`](reports/experiment_results/cross_precision_metrics.csv)
+- **Consolidated Summary JSON**: [`reports/experiment_results/cross_precision_summary.json`](reports/experiment_results/cross_precision_summary.json)
+- **Publication Visualizations**: [`reports/figures/cross_precision/`](reports/figures/cross_precision/)
+- **Test Suite**: [`tests/test_cross_precision_analysis.py`](tests/test_cross_precision_analysis.py) (153 total passing tests).
 
