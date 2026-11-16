@@ -1,172 +1,176 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs } from '@/components/ui/Tabs';
+import { Gauge } from 'lucide-react';
+import { researchData } from '@/data';
 import {
-  Gauge,
-  Activity,
-  HardDrive,
-  Cpu,
-  BarChart,
-  ScatterChart,
-  Info,
-} from 'lucide-react';
+  EfficiencyControls,
+  type EfficiencyFilterState,
+} from '@/components/efficiency/EfficiencyControls';
+import { EfficiencySummarySection } from '@/components/efficiency/EfficiencySummarySection';
+import { LatencyThroughputSection } from '@/components/efficiency/LatencyThroughputSection';
+import { ModelSizeCompressionSection } from '@/components/efficiency/ModelSizeCompressionSection';
+import { AccuracyEfficiencySection } from '@/components/efficiency/AccuracyEfficiencySection';
+import { EfficiencyParetoSection } from '@/components/efficiency/EfficiencyParetoSection';
+import { BenchmarkMethodologySection } from '@/components/efficiency/BenchmarkMethodologySection';
 
 export function EfficiencyExplorerPage() {
-  const [activeMetric, setActiveMetric] = useState('pareto');
+  const [filters, setFilters] = useState<EfficiencyFilterState>({
+    model: 'all',
+    precision: 'all',
+    device: 'all',
+    batch_size: 'all',
+    timing_mode: 'total',
+    include_diagnostic: false,
+  });
+
+  const handleReset = () => {
+    setFilters({
+      model: 'all',
+      precision: 'all',
+      device: 'all',
+      batch_size: 'all',
+      timing_mode: 'total',
+      include_diagnostic: false,
+    });
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-surface-border">
+    <div className="space-y-8 pb-12">
+      {/* 1. Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-surface-border">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-text-primary tracking-tight">
-              Efficiency & Pareto Explorer
-            </h2>
-            <Badge variant="accent">Task 5.5 Scaffold</Badge>
+            <h1 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+              Interactive Efficiency Explorer
+            </h1>
+            <Badge variant="accent">Module 05</Badge>
           </div>
-          <p className="text-xs text-text-secondary mt-1">
-            Empirical latency, throughput, memory scaling, and Pareto optimality analysis on Apple Silicon M3.
+          <p className="text-xs sm:text-sm text-text-secondary mt-1 max-w-4xl leading-relaxed">
+            Multi-dimensional deployment efficiency workbench evaluating serialized on-disk footprint, latency scaling ($B=1, 8, 32, 64$), peak throughput (img/s), and mathematical Pareto optimality across 6 model configurations on Apple Silicon M3.
           </p>
         </div>
 
-        <Tabs
-          items={[
-            { id: 'pareto', label: 'Pareto Frontier', icon: <ScatterChart className="w-3.5 h-3.5" /> },
-            { id: 'throughput', label: 'Throughput (FPS)', icon: <Activity className="w-3.5 h-3.5" /> },
-            { id: 'latency', label: 'Batch Scaling', icon: <Gauge className="w-3.5 h-3.5" /> },
-          ]}
-          activeId={activeMetric}
-          onChange={setActiveMetric}
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <Badge variant="outline" className="text-text-muted">
+            40 Benchmark Records
+          </Badge>
+          <Badge variant="purple" className="text-purple-400">
+            Apple M3 (Unified Memory)
+          </Badge>
+        </div>
+      </div>
+
+      {/* Analytical Focus Guidance Banner */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-surface-secondary/70 via-surface-secondary/40 to-surface-secondary/70 border border-surface-border text-xs text-text-secondary space-y-1.5">
+        <div className="flex items-center gap-2 text-text-primary font-bold">
+          <Gauge className="w-4 h-4 text-accent shrink-0" />
+          <span>Core Deployment Efficiency & Pareto Inquiries:</span>
+        </div>
+        <p className="text-[11px] leading-relaxed text-text-secondary pl-6">
+          <em>Which configuration achieves the smallest storage footprint? Which yields the lowest single-image latency for real-time edge triggers? How do CPU and Metal MPS acceleration profiles compare under batching regimes? Which architectures define the multi-objective Pareto frontier?</em> Empirical results show that <strong>MobileNetV3-Small INT8</strong> provides the smallest artifact (1.94 MB) and highest batch throughput (7,754.8 img/s total, 11,531.5 img/s forward-only), while <strong>ResNet-18 INT8</strong> defines the high-accuracy Pareto boundary (11.30 MB, 65.76% mean corrupted accuracy).
+        </p>
+      </div>
+
+      {/* Quick Jump Sub-Navigation Bar */}
+      <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-lg bg-surface-secondary/40 border border-surface-border font-mono text-xs text-text-muted">
+        <span className="text-[10px] uppercase font-bold text-text-primary px-2">Jump To:</span>
+        <a
+          href="#controls"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Controls (Sec A)
+        </a>
+        <a
+          href="#summary"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Telemetry Summary (Sec B)
+        </a>
+        <a
+          href="#scaling"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Batch & Latency Scaling (Sec C)
+        </a>
+        <a
+          href="#storage"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Storage & Compression (Sec D)
+        </a>
+        <a
+          href="#tradeoffs"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Accuracy Trade-offs (Sec E)
+        </a>
+        <a
+          href="#pareto"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Pareto Frontier (Sec F)
+        </a>
+        <a
+          href="#methodology"
+          className="px-2 py-1 rounded hover:bg-surface-hover hover:text-text-primary transition-colors"
+        >
+          Methodology (Sec G)
+        </a>
+      </div>
+
+      {/* Section A: Deployment Controls */}
+      <section id="controls" className="space-y-4 pt-2">
+        <EfficiencyControls
+          filters={filters}
+          onChange={setFilters}
+          onReset={handleReset}
+          benchmarkRecords={researchData.benchmarkRecords}
         />
-      </div>
+      </section>
 
-      {/* Metric Highlights Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-text-muted font-mono uppercase">
-            <span>Total-Engine Throughput</span>
-            <Activity className="w-3.5 h-3.5 text-accent" />
-          </div>
-          <div className="text-xl font-bold font-mono text-text-primary">
-            7,754.8 <span className="text-xs font-normal text-text-secondary">img/s</span>
-          </div>
-          <p className="text-[11px] text-text-muted leading-tight">
-            MobileNetV3-Small INT8 CPU (Batch 64, 4 threads, total latency 8.253 ms)
-          </p>
-        </Card>
+      {/* Section B: Overview Telemetry */}
+      <section id="summary" className="space-y-4 pt-2">
+        <EfficiencySummarySection
+          filters={filters}
+          benchmarkRecords={researchData.benchmarkRecords}
+          precisionVariants={researchData.precisionVariants}
+        />
+      </section>
 
-        <Card className="p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-text-muted font-mono uppercase">
-            <span>Total-Engine Throughput</span>
-            <Cpu className="w-3.5 h-3.5 text-accent" />
-          </div>
-          <div className="text-xl font-bold font-mono text-text-primary">
-            5,986.3 <span className="text-xs font-normal text-text-secondary">img/s</span>
-          </div>
-          <p className="text-[11px] text-text-muted leading-tight">
-            MobileNetV3-Small FP16 MPS (Batch 64, Metal, total latency 10.691 ms)
-          </p>
-        </Card>
+      {/* Section C: Latency & Throughput Scaling */}
+      <section id="scaling" className="space-y-4 pt-2">
+        <LatencyThroughputSection
+          filters={filters}
+          benchmarkRecords={researchData.benchmarkRecords}
+        />
+      </section>
 
-        <Card className="p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-text-muted font-mono uppercase">
-            <span>Artifact Compression</span>
-            <HardDrive className="w-3.5 h-3.5 text-accent" />
-          </div>
-          <div className="text-xl font-bold font-mono text-text-primary">
-            3.96× <span className="text-xs font-normal text-text-secondary">Reduction</span>
-          </div>
-          <p className="text-[11px] text-text-muted leading-tight">
-            ResNet-18 FP32 (44.78 MB) → INT8 (11.30 MB serialized on disk)
-          </p>
-        </Card>
+      {/* Section D: Model Size & Compression */}
+      <section id="storage" className="space-y-4 pt-2">
+        <ModelSizeCompressionSection
+          precisionVariants={researchData.precisionVariants}
+        />
+      </section>
 
-        <Card className="p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-text-muted font-mono uppercase">
-            <span>Forward-Path Latency</span>
-            <Gauge className="w-3.5 h-3.5 text-accent" />
-          </div>
-          <div className="text-xl font-bold font-mono text-text-primary">
-            5.550 <span className="text-xs font-normal text-text-secondary">ms</span>
-          </div>
-          <p className="text-[11px] text-text-muted leading-tight">
-            MobileNetV3-Small INT8 CPU (Batch 64 forward-only: 11,531.5 img/s)
-          </p>
-        </Card>
-      </div>
+      {/* Section E: Accuracy-Efficiency Trade-offs */}
+      <section id="tradeoffs" className="space-y-4 pt-2">
+        <AccuracyEfficiencySection
+          precisionVariants={researchData.precisionVariants}
+          benchmarkRecords={researchData.benchmarkRecords}
+        />
+      </section>
 
-      {/* Pareto Frontier Scatter Chart Placeholder */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-sm">
-                2D Multi-Objective Pareto Frontier (Accuracy vs Latency)
-              </CardTitle>
-              <CardDescription>
-                Revealing Pareto-optimal configurations balancing corruption robustness and compute efficiency
-              </CardDescription>
-            </div>
-            <Badge variant="outline">Task 5.5 Interactive Recharts</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72 border border-dashed border-surface-border rounded-lg flex flex-col items-center justify-center text-center p-6 bg-surface-secondary/20">
-            <ScatterChart className="w-10 h-10 text-text-muted mb-3" />
-            <span className="text-sm font-semibold text-text-primary">
-              Pareto Frontier Visualization Placeholder
-            </span>
-            <p className="text-xs text-text-secondary max-w-md mt-1 leading-relaxed">
-              In Task 5.5, this interactive ScatterPlot will plot Clean Accuracy vs Median Latency,
-              with Pareto-optimal convex hull overlays, tooltips with file sizes, and device filter toggles.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Section F: Multi-Objective Pareto Frontier */}
+      <section id="pareto" className="space-y-4 pt-2">
+        <EfficiencyParetoSection
+          paretoFrontiers={researchData.paretoFrontiers}
+        />
+      </section>
 
-      {/* Batch Scaling Comparison Placeholder */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between border-b border-surface-border pb-2">
-            <h4 className="text-xs font-semibold text-text-primary">Batch Scaling Regimes (B=1, 8, 32, 64)</h4>
-            <Badge variant="outline">Task 4.4 Data</Badge>
-          </div>
-          <div className="h-44 border border-dashed border-surface-border rounded-lg flex flex-col items-center justify-center text-center p-4 bg-surface-secondary/20">
-            <BarChart className="w-8 h-8 text-text-muted mb-2" />
-            <span className="text-xs font-medium text-text-secondary">
-              Throughput Scaling Chart Placeholder
-            </span>
-            <span className="text-[11px] text-text-muted">
-              Populated in Task 5.5 from benchmark_summary.csv
-            </span>
-          </div>
-        </Card>
-
-        <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between border-b border-surface-border pb-2">
-            <h4 className="text-xs font-semibold text-text-primary">Engine vs Forward-Path Timing</h4>
-            <Badge variant="outline">Pipeline Analysis</Badge>
-          </div>
-          <div className="h-44 border border-dashed border-surface-border rounded-lg flex flex-col items-center justify-center text-center p-4 bg-surface-secondary/20">
-            <Activity className="w-8 h-8 text-text-muted mb-2" />
-            <span className="text-xs font-medium text-text-secondary">
-              Preprocessing vs Forward vs Postprocessing Split
-            </span>
-            <span className="text-[11px] text-text-muted">
-              Populated in Task 5.5 from benchmark breakdown logs
-            </span>
-          </div>
-        </Card>
-      </div>
-
-      <div className="p-3.5 rounded-lg bg-surface-secondary/40 border border-surface-border flex items-center gap-2.5 text-xs text-text-secondary">
-        <Info className="w-4 h-4 text-accent shrink-0" />
-        <span>
-          Throughput and latency figures reflect empirical measurements from Task 4.4 and Task 5.3C on Apple Silicon M3 (unpinned 4-thread CPU & Metal MPS).
-        </span>
-      </div>
+      {/* Section G: Methodology & Limitations */}
+      <section id="methodology" className="space-y-4 pt-2">
+        <BenchmarkMethodologySection />
+      </section>
     </div>
   );
 }
