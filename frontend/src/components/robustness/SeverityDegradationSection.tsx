@@ -307,7 +307,7 @@ export function SeverityDegradationSection({
             <span>Severity Trajectory Dynamics:</span>
           </div>
           <p className="text-[11px] leading-relaxed text-text-secondary">
-            Across both architectures and all three precision regimes, degradation follows a non-linear curvature. At mild severities (1–2), residual skip connections and batch normalization layers absorb mild variance shifts. Beyond Severity 3, feature representation dispersion accelerates dramatically, causing sharp degradation regardless of parameter count. FP16 and INT8 quantized curves remain tightly clustered with FP32 across all severities, demonstrating that bit-width compression does not compromise degradation resilience.
+            Across both architectures and all three precision regimes, measured degradation increases non-linearly with severity level. At mild severities (1–2), measured accuracy drops remain modest across most corruption types, while severities 4 and 5 exhibit substantially larger performance drops. Across the five severity levels, FP16 and INT8 quantized curves track closely with the FP32 trajectory, indicating that numerical precision reduction produced minimal difference in degradation trajectory in these experiments.
           </p>
         </div>
       </CardContent>

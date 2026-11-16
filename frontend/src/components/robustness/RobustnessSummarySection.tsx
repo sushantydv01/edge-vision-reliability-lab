@@ -50,6 +50,12 @@ export function RobustnessSummarySection({
       ? activeConditions.reduce((acc, c) => acc + c.relative_accuracy_drop, 0) / conditionCount
       : 0;
 
+  const meanRelativeRetention =
+    cleanAcc > 0 ? (meanCorruptedAcc / cleanAcc) * 100 : 0;
+
+  const absDropSign = meanAbsoluteDrop > 0 ? '-' : meanAbsoluteDrop < 0 ? '+' : '';
+  const absDropFormatted = `${absDropSign}${Math.abs(meanAbsoluteDrop).toFixed(2)} pp`;
+
   // Identify the worst-performing condition/corruption in this configuration
   // Group all 30 conditions of this model+precision by corruption to find the worst corruption overall
   const allModelConditions = suite.detailed_conditions.filter(
@@ -144,28 +150,28 @@ export function RobustnessSummarySection({
           {/* 3. Absolute Drop (pp) */}
           <div className="p-3.5 rounded-xl bg-surface-secondary/50 border border-surface-border space-y-1 font-mono">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase text-text-muted">Mean Absolute Degradation</span>
+              <span className="text-[10px] uppercase text-text-muted">Mean Accuracy Drop</span>
               <ArrowDownRight className="w-3.5 h-3.5 text-rose-400" />
             </div>
             <div className="text-xl font-bold text-rose-400">
-              -{meanAbsoluteDrop.toFixed(2)} pp
+              {absDropFormatted}
             </div>
             <p className="text-[10px] font-sans text-text-muted">
-              Percentage point difference relative to clean baseline.
+              Percentage point difference relative to clean baseline ({cleanAcc}%).
             </p>
           </div>
 
-          {/* 4. Relative Drop (%) */}
+          {/* 4. Relative Retention (%) */}
           <div className="p-3.5 rounded-xl bg-surface-secondary/50 border border-surface-border space-y-1 font-mono">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase text-text-muted">Mean Relative Degradation</span>
+              <span className="text-[10px] uppercase text-text-muted">Mean Relative Retention</span>
               <Layers className="w-3.5 h-3.5 text-amber-400" />
             </div>
             <div className="text-xl font-bold text-amber-400">
-              {meanRelativeDrop.toFixed(2)}%
+              {meanRelativeRetention.toFixed(2)}%
             </div>
             <p className="text-[10px] font-sans text-text-muted">
-              Normalized loss relative to model's own clean capacity.
+              Capacity retained relative to clean baseline ({meanRelativeDrop.toFixed(2)}% relative drop).
             </p>
           </div>
         </div>
@@ -188,8 +194,7 @@ export function RobustnessSummarySection({
               <span className="text-rose-400 font-bold">-{worstCorruptionDrop.toFixed(2)} pp</span>
             </div>
             <p className="text-[11px] font-sans text-text-secondary leading-snug">
-              Retains only <strong>{formatPercent(worstCorruptionAcc)}</strong> average accuracy across severities 1–5.
-              High spatial frequencies in zero-mean additive noise severely disrupt convolutional activation patterns.
+              Retains only <strong>{formatPercent(worstCorruptionAcc)}</strong> average accuracy across severities 1–5, representing the largest measured performance drop among evaluated corruption types.
             </p>
           </div>
 
@@ -215,7 +220,7 @@ export function RobustnessSummarySection({
               </div>
             </div>
             <p className="text-[11px] font-sans text-text-secondary leading-snug">
-              Degradation accelerates non-linearly beyond Severity 3 as feature map representations suffer cumulative layer-wise dispersion.
+              Measured accuracy drops increase non-linearly with severity across all six evaluated corruption types.
             </p>
           </div>
         </div>

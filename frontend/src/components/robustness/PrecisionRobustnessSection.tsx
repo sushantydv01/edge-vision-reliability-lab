@@ -270,7 +270,7 @@ export function PrecisionRobustnessSection({
             <span>Quantization Impact on Out-of-Distribution Robustness:</span>
           </div>
           <p className="text-[11px] leading-relaxed text-text-secondary">
-            Across 30 distinct degradation conditions, post-training quantization to INT8 (via histogram observer and per-channel weight quantization) exhibits remarkable robustness preservation. For ResNet-18, INT8 corrupted accuracy is <strong>65.76%</strong> vs <strong>65.73%</strong> in FP32 (+0.03 pp delta). For MobileNetV3-Small, INT8 corrupted accuracy is <strong>59.01%</strong> vs <strong>58.83%</strong> in FP32 (+0.19 pp delta). These empirical results demonstrate that integer quantization acts as a slight regularizer rather than an accuracy liability under realistic sensory degradations.
+            Across the 30 evaluated synthetic degradation conditions, INT8 models measured slightly higher mean corrupted accuracy than their FP32 counterparts. Specifically, ResNet-18 INT8 measured a mean corrupted accuracy of <strong>65.76%</strong> compared to <strong>65.73%</strong> for FP32 (+0.03 pp difference), while MobileNetV3-Small INT8 measured <strong>59.01%</strong> compared to <strong>58.83%</strong> for FP32 (+0.19 pp difference). The benchmark documents these observed performance differences across the tested conditions, but does not establish an underlying causal mechanism such as regularization or improved generalization.
           </p>
         </div>
       </CardContent>

@@ -64,7 +64,7 @@ export function RobustnessLabPage() {
           <span>Core Robustness Inquiry & Stress-Testing Framework:</span>
         </div>
         <p className="text-[11px] leading-relaxed text-text-secondary pl-6">
-          <em>How much visual distortion can each architecture tolerate before accuracy collapses? Which degradation modes inflict the highest damage? Does post-training quantization to INT8 or FP16 compromise corruption resilience? Which architecture maintains superior stability under specific environmental artifacts?</em> Empirical evaluations reveal that <strong>quantized models preserve or marginally improve robustness</strong> over FP32 baselines, and compact architectures exhibit distinct inductive strengths—such as MobileNetV3-Small outperforming ResNet-18 under JPEG compression (69.66% vs 67.83%).
+          <em>How much visual distortion can each architecture tolerate before accuracy collapses? Which degradation modes inflict the highest damage? Does post-training quantization to INT8 or FP16 compromise corruption resilience? Which architecture maintains superior stability under specific environmental artifacts?</em> Empirical evaluations show that INT8 models measured slightly higher mean corrupted accuracy than their FP32 baselines in this benchmark (+0.03 pp on ResNet-18 and +0.19 pp on MobileNetV3-Small), and compact MobileNetV3-Small measured higher accuracy under JPEG compression than ResNet-18 (69.66% vs 67.83% in FP32). The evaluations report these measured differences across conditions without asserting unverified causal mechanisms.
         </p>
       </div>
 

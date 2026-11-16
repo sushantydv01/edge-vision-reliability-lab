@@ -273,10 +273,10 @@ export function CorruptionBreakdownSection({
           </div>
           <ul className="space-y-1.5 text-[11px] list-disc list-inside text-text-secondary leading-relaxed">
             <li>
-              <strong>JPEG Compression Crossover:</strong> MobileNetV3-Small achieves <strong>69.66%</strong> accuracy on JPEG compression compared to <strong>67.83%</strong> for ResNet-18 (+1.83 pp advantage). MobileNet's depthwise separable structure and squeeze-and-excitation channels appear less vulnerable to block DCT 8×8 quantization grid artifacts than ResNet's dense 3×3 kernels.
+              <strong>JPEG Compression Crossover:</strong> In this evaluation, MobileNetV3-Small measured higher mean accuracy under JPEG compression than ResNet-18 (69.66% vs 67.83% in FP32, a +1.83 pp difference). The benchmark records this empirical crossover across all three evaluated precision configurations, but does not independently isolate the architectural components responsible.
             </li>
             <li>
-              <strong>Noise Sensitivity:</strong> Gaussian noise produces the single highest absolute accuracy drop across both models (-49.32 pp on ResNet-18 and -43.97 pp on MobileNetV3-Small), demonstrating that high-frequency uncorrelated perturbation disrupts edge detection in early convolution stages.
+              <strong>Noise Sensitivity:</strong> Gaussian noise was accompanied by the largest observed accuracy drop across both models (-49.32 pp on ResNet-18 and -43.97 pp on MobileNetV3-Small), establishing that additive pixel noise produced the greatest performance degradation among tested synthetic perturbations.
             </li>
           </ul>
         </div>
