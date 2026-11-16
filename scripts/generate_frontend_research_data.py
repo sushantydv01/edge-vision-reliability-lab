@@ -446,6 +446,104 @@ def generate_research_data() -> None:
     # 10. Pareto Frontiers from cross_precision_summary.json
     pareto_frontiers = summary.get("pareto_frontiers", {})
 
+    # 11. Granular Robustness Suite (180 empirical condition evaluations + metadata)
+    corr_meta = {
+        "gaussian_noise": {
+            "name": "Gaussian Noise",
+            "category": "Noise",
+            "param_name": "Standard Deviation",
+            "param_symbol": "σ",
+            "param_values": [0.04, 0.06, 0.08, 0.10, 0.12],
+            "description": "Additive zero-mean Gaussian noise simulating sensor read noise and low-light electronic grain.",
+        },
+        "gaussian_blur": {
+            "name": "Gaussian Blur",
+            "category": "Blur",
+            "param_name": "Standard Deviation",
+            "param_symbol": "σ",
+            "param_values": [0.3, 0.5, 0.7, 0.9, 1.1],
+            "description": "Isotropic 2D Gaussian filter simulating optical defocus and lens aberration.",
+        },
+        "motion_blur": {
+            "name": "Horizontal Motion Blur",
+            "category": "Blur",
+            "param_name": "Kernel Length",
+            "param_symbol": "k",
+            "param_values": [3, 5, 7, 9, 11],
+            "description": "Linear horizontal 1D convolution kernel simulating fast lateral camera transit or object movement.",
+        },
+        "brightness": {
+            "name": "Brightness (Darkening)",
+            "category": "Photometric",
+            "param_name": "Attenuation Factor",
+            "param_symbol": "γ",
+            "param_values": [0.90, 0.75, 0.60, 0.45, 0.30],
+            "description": "Multiplicative darkening intensity scaling factor simulating underexposure and progressive illumination drop.",
+        },
+        "contrast": {
+            "name": "Contrast Attenuation",
+            "category": "Photometric",
+            "param_name": "Attenuation Factor",
+            "param_symbol": "c",
+            "param_values": [0.80, 0.60, 0.40, 0.20, 0.10],
+            "description": "Linear contrast attenuation relative to per-channel spatial mean simulating atmospheric haze.",
+        },
+        "jpeg_compression": {
+            "name": "JPEG Compression",
+            "category": "Digital",
+            "param_name": "Quality Factor",
+            "param_symbol": "Q",
+            "param_values": [80, 60, 40, 20, 10],
+            "description": "Discrete cosine transform lossy quantization simulating bandwidth-constrained transmission artifacts.",
+        },
+    }
+
+    detailed_results_files = {
+        "fp32": project_root / "reports/experiment_results/robustness_fp32_detailed_results.json",
+        "fp16": project_root / "reports/experiment_results/robustness_fp16_detailed_results.json",
+        "int8": project_root / "reports/experiment_results/robustness_int8_detailed_results.json",
+    }
+
+    detailed_conditions = []
+    clean_baselines = {}
+
+    for prec, fpath in detailed_results_files.items():
+        if fpath.exists():
+            with open(fpath, "r", encoding="utf-8") as rf:
+                det_data = json.load(rf)
+            for ev in det_data.get("evaluations", []):
+                m = ev["model_name"]
+                if ev.get("is_clean"):
+                    clean_baselines[f"{m}_{prec}"] = round(ev["metrics"]["accuracy"] * 100.0, 2)
+                else:
+                    c = ev["corruption_name"]
+                    s = ev["severity"]
+                    p_val = corr_meta[c]["param_values"][s - 1]
+                    p_sym = corr_meta[c]["param_symbol"]
+                    detailed_conditions.append({
+                        "model_id": m,
+                        "display_name": "ResNet-18" if m == "resnet18_cifar" else "MobileNetV3-Small",
+                        "precision": prec,
+                        "corruption": c,
+                        "corruption_name": corr_meta[c]["name"],
+                        "category": corr_meta[c]["category"],
+                        "severity": s,
+                        "parameter_value": p_val,
+                        "parameter_label": f"{p_sym}={p_val}",
+                        "accuracy": round(ev["metrics"]["accuracy"] * 100.0, 2),
+                        "loss": round(ev["metrics"]["loss"], 4),
+                        "clean_accuracy": round(ev["clean_accuracy"] * 100.0, 2),
+                        "accuracy_drop_pp": round(ev["accuracy_drop_pp"], 2),
+                        "relative_accuracy_drop": round(ev["relative_accuracy_drop"] * 100.0, 2),
+                    })
+
+    robustness_suite = {
+        "corruption_metadata": corr_meta,
+        "categories": ["Noise", "Blur", "Photometric", "Digital"],
+        "detailed_conditions": detailed_conditions,
+        "clean_baselines": clean_baselines,
+    }
+
     data = {
         "metadata": meta,
         "baselineComparison": baseline_comparison,
@@ -457,6 +555,7 @@ def generate_research_data() -> None:
         "methodologyLimitations": methodology_limitations,
         "benchmarkRecords": benchmark_records,
         "paretoFrontiers": pareto_frontiers,
+        "robustnessSuite": robustness_suite,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

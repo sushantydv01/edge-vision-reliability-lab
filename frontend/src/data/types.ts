@@ -184,6 +184,39 @@ export interface ParetoFrontiers {
   within_architecture?: Record<string, Record<string, ParetoFrontierSet>>;
 }
 
+export interface CorruptionMetadataItem {
+  name: string;
+  category: string;
+  param_name: string;
+  param_symbol: string;
+  param_values: number[];
+  description: string;
+}
+
+export interface DetailedRobustnessCondition {
+  model_id: string;
+  display_name: string;
+  precision: 'fp32' | 'fp16' | 'int8';
+  corruption: string;
+  corruption_name: string;
+  category: string;
+  severity: number;
+  parameter_value: number;
+  parameter_label: string;
+  accuracy: number;
+  loss: number;
+  clean_accuracy: number;
+  accuracy_drop_pp: number;
+  relative_accuracy_drop: number;
+}
+
+export interface RobustnessSuite {
+  corruption_metadata: Record<string, CorruptionMetadataItem>;
+  categories: string[];
+  detailed_conditions: DetailedRobustnessCondition[];
+  clean_baselines: Record<string, number>;
+}
+
 export interface ResearchDataset {
   metadata: ProjectMetadata;
   baselineComparison: BaselineComparison;
@@ -195,4 +228,5 @@ export interface ResearchDataset {
   methodologyLimitations: MethodologyLimitation[];
   benchmarkRecords: BenchmarkRecord[];
   paretoFrontiers: ParetoFrontiers;
+  robustnessSuite: RobustnessSuite;
 }
