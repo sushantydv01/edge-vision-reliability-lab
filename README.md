@@ -374,3 +374,118 @@ Evaluated across 10,000 held-out CIFAR-10 test images under clean and 30 corrupt
 - **Current Reproducibility Limitations**:
   - **PyTorch PRNG Versioning**: PyTorch does not guarantee bit-for-bit identical `torch.randperm` permutations across future major versions. Checksum verification in `get_or_create_split_indices` detects any PRNG drift and requires explicit intentional regeneration (`force_regenerate=True`).
   - **Worker Concurrency**: Determinism is strictly verified with `num_workers=0`. When multi-worker training is introduced in subsequent milestones, deterministic `worker_init_fn` seeding will be evaluated.
+
+---
+
+## Inference & Benchmarking (Milestone 4)
+
+A unified inference subsystem and benchmarking harness for executing and profiling all six CIFAR-10 model/precision variants.
+
+### Environment & Hardware Assumptions
+- **Python**: 3.12 (virtual environment at `.venv`)
+- **PyTorch**: 2.5+ with Torchvision and Pillow installed
+- **Hardware Profile**: Apple Silicon Mac (M3, 8 GB unified memory); CPU and MPS supported
+
+### Supported Model & Device Configurations
+
+| Architecture | Precision | Backend | Supported Devices | Operational Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `resnet18_cifar` | `fp32` | PyTorch Eager | CPU, MPS | Canonical baseline |
+| `resnet18_cifar` | `fp16` | PyTorch Eager | MPS (preferred), CPU | Observed substantial CPU slowdown compared to FP32 |
+| `resnet18_cifar` | `int8` | TorchScript | CPU only | Strictly CPU-bound via QNNPACK backend |
+| `mobilenet_v3_small_cifar` | `fp32` | PyTorch Eager | CPU, MPS | Inverted residual baseline |
+| `mobilenet_v3_small_cifar` | `fp16` | PyTorch Eager | MPS (preferred), CPU | Observed substantial CPU slowdown compared to FP32 |
+| `mobilenet_v3_small_cifar` | `int8` | TorchScript | CPU only | Strictly CPU-bound via QNNPACK backend |
+
+> [!NOTE]
+> INT8 models cannot run on Apple Silicon MPS because PyTorch does not implement quantized operators on MPS. Attempting to select `mps` for `int8` raises an explicit `DeviceCompatibilityError`.
+
+### CLI Usage: Single Image Inference
+
+```bash
+# Basic single image inference on Apple Silicon MPS
+python scripts/infer.py --image path/to/image.png --model resnet18_cifar --precision fp16 --device mps --top-k 5
+
+# Enable bilinear resizing for non-32x32 images
+python scripts/infer.py --image path/to/high_res.jpg --model mobilenet_v3_small_cifar --precision fp32 --resize
+
+# Output machine-readable JSON (human messages routed to stderr)
+python scripts/infer.py --image path/to/image.png --model resnet18_cifar --json --output result.json
+```
+
+### CLI Usage: Batch Directory Inference
+
+Processes image directories in deterministic sorted order with bounded batching to prevent unbounded memory consumption:
+
+```bash
+# Process directory of images in batches of 32
+python scripts/infer.py --dir path/to/images/ --model resnet18_cifar --precision fp32 --batch-size 32
+
+# With explicit error recording policy (continues on unreadable files and logs them)
+python scripts/infer.py --dir path/to/images/ --model mobilenet_v3_small_cifar --precision int8 --on-error record --output batch_results.json
+```
+
+### Resize Behavior
+- **Default (`--resize` omitted)**: Strictly rejects images whose spatial dimensions are not $32\times 32$, raising an explicit `InvalidInputError`.
+- **Enabled (`--resize` supplied)**: Applies deterministic bilinear interpolation with antialiasing to scale arbitrary image dimensions to $32\times 32$ before canonical CIFAR-10 normalization.
+
+### Benchmark Runner
+
+Reproducibly profiles model load latency, steady-state batch throughput, and component latency breakdowns:
+
+```bash
+# Quick sanity smoke test (batch sizes 1 and 8, 2 repetitions)
+python scripts/benchmark_inference.py --smoke-test --output-dir experiments/inference_benchmarks/smoke_run
+
+# Comprehensive benchmark across all 6 model/precision variants and batch sizes (1, 8, 32, 64)
+python scripts/benchmark_inference.py \
+  --models resnet18_cifar mobilenet_v3_small_cifar \
+  --precisions fp32 fp16 int8 \
+  --batch-sizes 1,8,32,64 \
+  --warmup 5 \
+  --repetitions 20 \
+  --output-dir experiments/inference_benchmarks/run_full
+```
+
+#### Benchmark Output Structure
+Results are saved to:
+- `benchmark_summary.csv`: Tabular CSV with median, mean, p95, per-image latency, total engine throughput (FPS), forward-path latency, forward-only throughput (FPS), and load times.
+- `benchmark_results.json`: Comprehensive machine-readable report containing platform/PyTorch versions, Git commit hash, artifact checksums, random seeds, and raw measurements.
+
+### Benchmark Methodology & Performance Analysis
+
+#### 1. CPU Threading Configuration & Sensitivity
+- **Runtime Defaults**: Task 4.4 benchmark runs were conducted under unpinned PyTorch runtime defaults on Apple Silicon M3 (`torch.get_num_threads() == 4`, `torch.get_num_interop_threads() == 8`). Thread counts were not explicitly pinned or restricted by the benchmark runner.
+- **Thread Sensitivity**: CPU inference performance—most notably single-image (batch-1) latency for lightweight architectures like MobileNetV3-Small—is highly sensitive to thread configuration. On lightweight architectures with small tensor footprints, multi-threading overhead can dominate execution time at small batch sizes.
+
+#### 2. Comparisons with Prior Benchmarks (Task 5.3C)
+- **Harness Differences**: Prior CPU benchmarks in Task 5.3C executed in isolated child processes with explicitly pinned thread counts (`threads=1, 2, 4`), whereas Task 4.4 used a single shared process under default threading (`threads=4`, `interop_threads=8`).
+- **Consistency**: Task 4.4's MobileNetV3-Small FP32 batch-1 forward latency (~25.7 ms) is consistent with Task 5.3C's 4-thread result (~24.2 ms), rather than its 1-thread result (~4.0 ms).
+- **Non-Interchangeability**: Thread count is not conclusively proven as the sole cause of every difference across benchmark suites. Process isolation, harness warm-up, timing scopes, memory allocator behavior, and background host activity also differ; measurements from different harnesses are not directly interchangeable.
+
+#### 3. Empirical Observations vs. Causal Hypotheses
+- **Thread-Pool Overhead**: Thread-pool synchronization and scheduling overhead are plausible hypotheses for multi-threaded batch-1 latency degradation on small networks, but they remain hypotheses rather than definitively proven hardware mechanisms.
+- **CPU FP16 Slowdown**: ResNet-18 FP16 on CPU exhibits severe throughput degradation (~13.6 FPS at batch 64 compared to ~207.8 FPS for FP32). This is documented strictly as an empirical observation under PyTorch 2.5 on Apple Silicon ARM64 CPU. Hypotheses such as missing vector GEMM kernels or scalar software emulation are unverified without low-level hardware performance counter traces and are not asserted as established causes.
+- **Separation of Concerns**: In all project documentation, measured empirical findings are kept strictly separated from explanatory hypotheses.
+
+#### 4. Throughput & Latency Interpretation
+- **Total Engine Throughput vs. Forward-Only Throughput**: Headline throughput figures reported in the benchmark (`throughput_fps`) reflect **total engine throughput** calculated from median total latency (`median_total_ms`), not forward-only execution:
+  - For MobileNetV3-Small INT8 at batch 64 on Apple M3 CPU (4 intra-op threads, QNNPACK), median total engine latency is 8.253 ms, resulting in headline total engine throughput of **7,754.8 images/sec**.
+  - Total engine latency encompasses the entire in-memory inference pipeline: image preprocessing (`preprocess_batch_images`: tensor conversion, NCHW permutation, scaling, and CIFAR-10 normalization), forward-path execution, device synchronization (where applicable), CPU transfer, and prediction formatting (softmax and top-$k$ extraction).
+  - By contrast, **forward-only throughput** (`forward_only_throughput_fps`) is derived from **forward-path latency** (`median_forward_ms`): this measures model forward execution plus applicable input tensor casting/device transfer (`_prepare_tensor_for_forward`) and pipeline synchronization (`torch.mps.synchronize()`). For MobileNetV3-Small INT8 at batch 64, median forward-path latency is **5.550 ms**, yielding forward-only throughput of **11,531.5 images/sec**.
+  - Similarly, for MobileNetV3-Small FP16 on MPS at batch 64, total engine throughput is **5,986.3 images/sec** (median total latency 10.691 ms), while forward-only throughput reaches **8,408.9 images/sec** (median forward-path latency **7.611 ms**). For ResNet-18 FP16 on MPS at batch 64, total engine throughput is **2,128.8 images/sec** (30.064 ms), while forward-only throughput is **2,357.7 images/sec** (median forward-path latency **27.145 ms**).
+- **In-Memory Input vs. Pre-Allocated Tensors**: The benchmark operates on in-memory synthetic image batches (NumPy `uint8` arrays of shape $(B, 32, 32, 3)$) rather than pre-allocated normalized tensors, thereby exercising the complete preprocessing, execution, and postprocessing pipeline of the engine.
+- **Exclusion of Disk and Camera I/O**: Both total engine throughput and forward-only throughput are strictly **in-memory benchmarks**. Neither metric represents end-to-end disk/camera pipeline throughput, where storage read/write, file decoding (Pillow/libjpeg from compressed JPEG/PNG bytes), and camera frame acquisition form the primary latency bottleneck.
+- **INT8 Is Not Universally Faster**: Quantization does not universally outperform full precision across all hardware and models:
+  - In Task 5.3C single-thread testing (`threads=1`, `batch_size=1`), ResNet-18 INT8 was substantially slower than FP32: **10.937 ms** median forward latency for INT8 vs. **4.805 ms** for eager FP32 (and **4.414 ms** for TorchScript FP32) across 100 timed runs in isolated child processes.
+  - On Apple Silicon, FP32 on MPS (**1,372.4 images/sec** total engine throughput at batch 64, 46.634 ms) substantially outperforms INT8 on CPU (**333.3 images/sec** total engine throughput at batch 64, 192.020 ms).
+  - INT8 speedups are contingent on operator fusion, backend implementation (QNNPACK), batch size, and target hardware architecture.
+
+#### 5. Sample-Size Limitation on Tail Latency (p95)
+- **Statistical Limitation**: The benchmark runner computes and reports 95th-percentile (p95) latency via linear interpolation across 10 repetitions per configuration. However, with a sample size of $N = 10$, this metric is sample-limited and cannot be interpreted as a high-confidence tail-latency or SLA guarantee.
+- **Future Formal Profiling**: Formal tail-latency characterization or SLA profiling should execute at least 30 to 100 repetitions under strict OS-level isolation.
+
+### Key Operational Limitations
+1. **Device Boundaries**: INT8 post-training quantized artifacts execute exclusively on CPU via QNNPACK; Apple Silicon MPS does not support PyTorch quantized operators.
+2. **CPU FP16 Performance**: In PyTorch on ARM64 CPU, FP16 inference exhibits substantial empirical slowdown compared to FP32. For accelerated FP16 inference, Apple Silicon MPS is strongly recommended.
+3. **Platform Portability**: CPU benchmark results measured on Apple Silicon ARM64 reflect Apple M3 microarchitectural characteristics and do not generalize to x86 or server processors.
