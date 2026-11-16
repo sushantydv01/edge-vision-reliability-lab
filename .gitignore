@@ -88,5 +88,12 @@ artifacts/*
 runs/
 wandb/
 
+# Node / Frontend
+node_modules/
+.npm
+dist/
+.eslintcache
+!frontend/src/lib/
+
 # Note: reports/figures and reports/experiment_results (CSV/JSON/figures)
 # are explicitly tracked to maintain reproducibility and report history.
