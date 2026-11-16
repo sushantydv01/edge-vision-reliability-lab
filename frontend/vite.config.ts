@@ -14,4 +14,35 @@ export default defineConfig({
     port: 5173,
     host: '127.0.0.1',
   },
+  build: {
+    target: 'es2020',
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (
+            id.includes('node_modules/recharts') ||
+            id.includes('node_modules/d3-') ||
+            id.includes('node_modules/victory-vendor')
+          ) {
+            return 'vendor-recharts';
+          }
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router') ||
+            id.includes('node_modules/@remix-run')
+          ) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
+          if (id.includes('researchData.json')) {
+            return 'research-dataset';
+          }
+        },
+      },
+    },
+  },
 });
