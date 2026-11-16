@@ -15,9 +15,10 @@ export function LoadingSpinner({ size = 'md', className, label }: LoadingSpinner
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 gap-2">
+    <div role="status" aria-live="polite" className="flex flex-col items-center justify-center p-4 gap-2">
       <Loader2 className={cn('animate-spin text-accent', sizes[size], className)} />
       {label && <p className="text-xs text-text-muted font-medium">{label}</p>}
+      <span className="sr-only">{label || 'Loading...'}</span>
     </div>
   );
 }

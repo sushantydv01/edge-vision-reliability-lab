@@ -204,16 +204,26 @@ export function ImageUploadWorkspace({
             onChange={handleFileChange}
             accept={SYSTEM_LIMITS.supportedExtensions.join(',')}
             className="hidden"
+            aria-label="Upload input image"
           />
 
           {/* Drag & Drop or Active Preview */}
           {!activeImage ? (
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Upload input image by browsing or drag and drop"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`p-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+              className={`p-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                 isDragOver
                   ? 'border-accent bg-accent/10 scale-[0.99]'
                   : 'border-surface-border hover:border-accent/50 hover:bg-surface-secondary/40'
@@ -372,7 +382,7 @@ export function ImageUploadWorkspace({
 
           {/* Validation Error Feedback */}
           {validationError && (
-            <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+            <div role="alert" className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{validationError}</span>
             </div>
@@ -380,7 +390,7 @@ export function ImageUploadWorkspace({
 
           {/* Inference Backend Error Feedback */}
           {inferenceError && (
-            <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-start gap-2">
+            <div role="alert" className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
                 <strong className="block font-medium">Inference Execution Failed</strong>

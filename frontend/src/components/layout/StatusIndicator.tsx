@@ -44,6 +44,9 @@ export function StatusIndicator() {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-label={`Target API status: ${status}`}
       className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-secondary border border-surface-border text-xs"
       title={`Target Service: ${API_BASE_URL} (${status})`}
     >
