@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/Button';
 
 interface HeaderProps {
   onMobileMenuToggle: () => void;
+  isMobileMenuOpen?: boolean;
+  hamburgerRef?: React.Ref<HTMLButtonElement>;
 }
 
-export function Header({ onMobileMenuToggle }: HeaderProps) {
+export function Header({ onMobileMenuToggle, isMobileMenuOpen = false, hamburgerRef }: HeaderProps) {
   const location = useLocation();
   const currentNav = NAV_ITEMS.find((item) =>
     item.path === '/'
@@ -20,11 +22,14 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
     <header className="h-14 border-b border-surface-border bg-surface/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
       <div className="flex items-center gap-3">
         <Button
+          ref={hamburgerRef}
           variant="ghost"
           size="icon"
           onClick={onMobileMenuToggle}
           className="lg:hidden text-text-secondary hover:text-text-primary"
           aria-label="Toggle navigation menu"
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="mobile-navigation-drawer"
         >
           <Menu className="w-5 h-5" />
         </Button>
