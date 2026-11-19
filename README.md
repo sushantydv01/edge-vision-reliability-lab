@@ -1,659 +1,430 @@
 # Edge Vision Reliability Lab
 
-A reproducible experimental platform for investigating how model compression affects computer vision reliability under realistic image corruptions.
-
-## Research Question
-
-> **How does model compression (FP16 precision reduction and INT8 post-training quantization) impact the out-of-distribution robustness and corruption reliability of compact edge vision architectures compared to standard convolutional baselines?**
-
-When deploying models to resource-constrained edge environments, compression techniques (such as quantization) are essential to satisfy latency, memory, and energy budgets. However, edge systems frequently operate in noisy, dynamic physical environments (e.g., weather degradation, sensor noise, compression artifacts). This project quantifies the trade-offs between computational efficiency and corruption reliability.
+**Investigating the trade-offs between model compression, inference efficiency, and predictive reliability under image corruption.**
 
 ---
 
-## Project Scope
+## 1. Project Overview
 
-- **Architectures**:
-  - `MobileNetV3-Small` (compact, inverted residual edge architecture)
-  - `ResNet18` (canonical residual baseline)
-- **Precision / Compression Variants**:
-  - FP32 baseline
-  - FP16 (where supported/applicable)
-  - INT8 Post-Training Quantization (PTQ)
-- **Dataset**: CIFAR-10 & CIFAR-10-C style perturbations (common realistic image corruptions across noise, blur, weather, and digital categories at multiple severity levels).
-- **Target Metrics**:
-  - **Reliability**: Clean accuracy, accuracy under synthetic image corruptions, absolute and relative degradation deltas across severities.
-  - **Efficiency**: Model file size / parameter memory footprint, inference latency (mean, median, p95/p99), throughput (samples/sec), peak working memory.
-- **Hardware Profile**:
-  - Edge target constraint: Apple M3 (8 GB unified memory), strict memory limits.
-  - Primary compute target: CPU (conservative and fully reproducible baseline); optional Apple MPS acceleration evaluation.
-  - No dependency on cloud GPUs or external proprietary APIs.
+Edge Vision Reliability Lab is an empirical machine learning systems research platform investigating how model compression affects the predictive robustness and inference efficiency of computer vision models under controlled image degradation.
+
+In resource-constrained edge computing environments—such as drones, embedded robotics, mobile cameras, and internet-of-things (IoT) devices—computer vision models must operate within strict memory, latency, and power budgets. Post-training 8-bit integer quantization is commonly applied to reduce model size and accelerate execution. However, edge devices frequently capture images in challenging physical environments where optical blur, sensor noise, underexposure, and compression artifacts degrade image quality.
+
+This project measures the empirical trade-offs between model size, inference latency, compute hardware, and predictive accuracy across clean and corrupted conditions.
+
+> **Scope Note:** This repository is an empirical research and portfolio project conducted on CIFAR-10 at $32 \times 32$ resolution. It is a controlled experimental study, not a field-deployed production edge system.
 
 ---
 
-## Planned Milestones
+## 2. Plain-English Summary
 
-| Milestone | Title | Objective |
-| :--- | :--- | :--- |
-| **0** | **Environment & Project Baseline** | Workspace verification, Git tracking, Python 3.12 virtual environment setup, strict pinning. |
-| **1** | **Data & Corruption Pipeline** | CIFAR-10 data loader with clean baseline and standardized synthetic image corruption suite. |
-| **2** | **Model Baselines (FP32)** | Modular model definitions for MobileNetV3-Small and ResNet18; 100-epoch baseline training and clean test evaluation (Completed). |
-| **3** | **Compression & Quantization** | FP16 conversion and INT8 Post-Training Quantization (PTQ) pipelines with calibration routines. |
-| **4** | **Benchmarking Engine** | Deterministic profiling harness measuring latency, memory usage, throughput, and robustness metrics. |
-| **5** | **Analysis & Reporting** | Comparative evaluation reports, Pareto frontier visualizations (efficiency vs reliability), and experimental findings.
+### What Problem Are We Studying?
+Computer vision models are typically trained on clear, curated images. In real-world environments, images captured by physical cameras are often degraded by motion blur, electronic noise, low lighting, or lossy digital compression. Deploying models to resource-constrained devices also requires model compression. This project investigates whether shrinking a vision model changes its vulnerability when image quality degrades.
+
+### What Models Are Being Compared?
+We compare two convolutional neural network (CNN) architectures with distinct design trade-offs:
+1. **ResNet-18:** A canonical residual network with 11.17 million parameters, representing parameter-dense convolutional baselines.
+2. **MobileNetV3-Small:** A compact network with 1.53 million parameters, designed for mobile and edge execution using depthwise separable convolutions and squeeze-and-excitation modules.
+
+### What Does Compression Mean Here?
+Each model is evaluated across three numerical precision formats:
+- **FP32 (32-bit floating point):** The full-precision baseline.
+- **FP16 (16-bit half precision):** Halves parameter storage, evaluated on Apple Silicon GPU (MPS).
+- **INT8 (8-bit integer):** Post-training static quantization using PyTorch FX Graph Mode and the QNNPACK engine on CPU, reducing parameter weights to 8-bit integers.
+
+### What Happens When Images Are Degraded?
+Each model is evaluated against 6 synthetic corruption types across 5 progressive severity levels (30 corrupted conditions total, plus clean baseline testing). Across 6 model configurations, this comprises **1,800,000 corrupted evaluation passes** and **60,000 clean baseline passes** (1,860,000 total evaluation passes over 10,000 held-out test images).
+
+### What Did the Experiments Reveal?
+- **Quantization preserved corruption stability:** INT8 post-training quantization reduced serialized file sizes by 74.77% on ResNet-18 and 68.92% on MobileNetV3-Small, while maintaining mean corrupted accuracy within $\pm 0.2\text{ percentage points}$ of full-precision FP32 models.
+- **Smaller files did not guarantee faster single-thread CPU inference:** On Apple Silicon M3 CPU running a single intra-op thread, ResNet-18 INT8 recorded a batch-1 mean latency of 10.89 ms compared to 4.88 ms for Eager FP32. INT8 achieved speedups at batch size 64 across 4 threads (186.97 ms vs 295.12 ms), while MobileNetV3-Small INT8 achieved lower latency across all evaluated batch sizes (0.42 ms at batch 1).
+- **Vulnerability depended on corruption type:** Gaussian noise and horizontal motion blur produced the largest average accuracy degradation across both architectures, whereas brightness darkening caused minimal accuracy loss.
 
 ---
 
-## Project Structure
+## 3. Key Findings
 
-```text
-edge-vision-reliability-lab/
-├── configs/                  # Experiment configuration files (YAML/JSON)
-├── data/
-│   ├── raw/                  # Original downloaded datasets (e.g. CIFAR-10)
-│   └── processed/            # Preprocessed datasets or cached corruption batches
-├── models/                   # Serialized checkpoints and quantized model artifacts
-├── artifacts/                # Profile traces, intermediate exports, logs
-├── reports/
-│   ├── figures/              # Generated plots and visualization figures
-│   └── experiment_results/   # Structured metric logs (CSV/JSON/Parquet)
-├── scripts/                  # Standalone execution scripts (run_benchmarks, train, quantize)
-├── src/
-│   └── edge_vision/          # Reusable Python package modules
-├── tests/                    # Unit, regression, and pipeline integration tests
-├── .gitignore                # Git ignore configuration
-├── PROJECT_STATUS.md         # Current state and completed tasks log
-└── README.md                 # Project overview and documentation
+1. **Clean Test Accuracy Baseline:**
+   ResNet-18 FP32 achieved **94.78%** clean test accuracy on CIFAR-10. MobileNetV3-Small FP32 achieved **86.51%** clean test accuracy under the same 100-epoch training recipe.
+2. **Substantial Artifact Size Reduction:**
+   INT8 quantization reduced ResNet-18 artifact size from **44.78 MB to 11.30 MB** (74.77% reduction; 3.96× compression) and MobileNetV3-Small from **6.25 MB to 1.94 MB** (68.92% reduction; 3.22× compression).
+3. **Robustness Parity Across Precisions:**
+   Under 30 corrupted evaluation conditions, mean corrupted accuracy was nearly identical across precisions:
+   - ResNet-18: FP32 = **65.73%**, FP16 = **65.73%**, INT8 = **65.76%**
+   - MobileNetV3-Small: FP32 = **58.83%**, FP16 = **58.82%**, INT8 = **59.01%**
+4. **Workload-Dependent Latency Scaling:**
+   Compression did not yield a universal latency improvement across all workloads. At batch size 1 on a single CPU thread, ResNet-18 INT8 was slower than Eager FP32 (10.89 ms vs 4.88 ms mean latency). At batch size 64 with 4 threads, INT8 was faster (186.97 ms vs 295.12 ms). MobileNetV3-Small INT8 was faster across all batch sizes (0.42 ms at batch 1 on 1 thread).
+5. **Corruption Sensitivity Hierarchy:**
+   Averaged across all five severity levels, **Gaussian noise** and **horizontal motion blur** caused the largest mean accuracy degradation (reducing average accuracy below 48% on ResNet-18 and below 43% on MobileNetV3-Small).
+6. **Worst Individual Conditions:**
+   For individual severity-5 perturbations, the lowest observed accuracies were:
+   - ResNet-18 FP32: Gaussian Noise Severity 5 (**22.79%**)
+   - ResNet-18 FP16: Gaussian Noise Severity 5 (**22.81%**)
+   - ResNet-18 INT8: Contrast Severity 5 (**23.80%**)
+   - MobileNetV3-Small FP32: Contrast Severity 5 (**20.50%**)
+   - MobileNetV3-Small FP16: Contrast Severity 5 (**20.48%**)
+   - MobileNetV3-Small INT8: Contrast Severity 5 (**19.81%**)
+
+---
+
+## 4. Research Question & Scope
+
+### Central Research Question
+> *"How much can we compress a computer vision model before it becomes unreliable under realistic image degradation, and what trade-offs exist between model size, inference latency, resource consumption, and predictive reliability?"*
+
+### Experimental Scope
+- **Task:** 10-class image classification on CIFAR-10.
+- **Input Resolution:** $32 \times 32 \times 3$ RGB images.
+- **Model Architectures:** ResNet-18 (parameter-dense residual baseline) and MobileNetV3-Small (FLOP-efficient inverted residual baseline).
+- **Numerical Precisions:** FP32 (eager baseline), FP16 (half precision), and INT8 (post-training static quantization).
+- **Perturbations:** 6 synthetic corruption operations across 5 discrete severity levels (30 corrupted conditions).
+- **Evaluation Platform:** Apple Silicon M3 (ARM64 CPU and Metal Performance Shaders GPU). INT8 execution is supported on CPU through QNNPACK.
+
+---
+
+## 5. Experimental Methodology
+
+### 5.1 Dataset Partitioning & Integrity
+- **Base Dataset:** CIFAR-10 (60,000 images total; 50,000 in official train set, 10,000 in official test set).
+- **Partitioning:** The 50,000-image training set was partitioned into:
+  - **Training Split:** 45,000 images (90%)
+  - **Validation Split:** 5,000 images (10%)
+  - **Test Split:** 10,000 images (canonical held-out CIFAR-10 test set, untouched during training)
+- **Split Invariants:** Generated using an unstratified random permutation (`torch.randperm`, seed 42). Split index integrity is verified via SHA-256 checksums computed on little-endian unsigned 32-bit integer index arrays (`struct.pack("<I", *indices)`), recorded in `configs/cifar10_split_manifest.json`.
+- **Test-Set Isolation:** The `Trainer` class explicitly validates that dataset containers containing test data cannot be supplied during training (`trainer.py#L39`). Best checkpoints were selected strictly by validation set accuracy.
+
+### 5.2 Model Adaptations for 32×32 Imagery
+Standard ImageNet backbones downsample $224 \times 224$ images by $32\times$, collapsing $32 \times 32$ CIFAR-10 inputs to single-pixel feature maps:
+- **ResNet-18 Adaptation (`resnet18_cifar`):** The initial $7 \times 7$ conv (stride 2) was replaced with a $3 \times 3$ conv (stride 1, padding 1, no bias), the initial max-pooling layer was replaced with `nn.Identity()`, and the final fully connected layer was adapted to 10 classes. Total parameters: 11,173,962.
+- **MobileNetV3-Small Adaptation (`mobilenet_v3_small_cifar`):** In standard MobileNetV3-Small on $32 \times 32$ inputs, five stride-2 stages downsample spatial dimensions by $32\times$, collapsing feature maps to $1 \times 1$ at stage 9 (`features[9]`), where depthwise convolution outputs tensor shape $[N, 288, 1, 1]$ into `BatchNorm2d(288)`. At batch size $N=1$ in training mode, $N \times H \times W = 1$, causing PyTorch `BatchNorm2d` to fail (requiring $>1$ sample per channel for variance calculation). Setting stem stride to 1 (`features[0][0].stride = (1, 1)`) limits total spatial reduction to $16\times$, maintaining $2 \times 2$ resolution at stage 9 ($[N, 288, 2, 2]$ input to `BatchNorm2d`, providing $N \times H \times W = 4$ samples per channel at $N=1$). Classification projection (`classifier[3]`) is adapted to 10 classes. Total parameters: 1,528,106.
+
+### 5.3 Baseline Training Setup
+Both models were trained from scratch for 100 epochs under identical hyperparameters (`configs/train_baseline.yaml`):
+- **Optimizer:** Stochastic Gradient Descent (SGD) with momentum 0.9, weight decay $5 \times 10^{-4}$.
+- **Learning Rate Schedule:** Initial learning rate 0.05 with `CosineAnnealingLR` ($T_{\max}=100$, $\eta_{\min}=10^{-4}$).
+- **Batch Size:** 64, with training shuffle enabled.
+- **Data Augmentation:** Random crop ($32 \times 32$, padding 4) and random horizontal flip ($p=0.5$). Normalization: mean `[0.4914, 0.4822, 0.4465]`, std `[0.2470, 0.2435, 0.2616]`.
+
+### 5.4 Quantization Pipeline
+- **FP16 Half Precision:** Model parameter weights were cast to 16-bit half precision using `.half()`. Inference was evaluated on Apple Silicon MPS.
+- **INT8 Post-Training Quantization (PTQ):** Implemented using PyTorch FX Graph Mode quantization (`torch.ao.quantization.quantize_fx`) targeting the `qnnpack` backend.
+- **Calibration Split:** Observers were calibrated on **512 clean, unaugmented training images** sampled deterministically from the 45,000-image training split (seed 42). The validation and test splits were completely excluded.
+- **MobileNetV3 Skip-Connection Handling:** In MobileNetV3 inverted residual blocks, summing skip features with activations produced scale factor ratios exceeding QNNPACK's minimum threshold ($\Delta_{\text{in}} / \Delta_{\text{out}} < 2^{-14}$), causing runtime kernel assertion failures. In `src/edge_vision/quantization/ptq.py#L105-L108`, `torch.add`, `operator.add`, and `operator.iadd` were excluded from quantization (`qconfig_mapping.set_object_type(torch.add, None)`), preserving residual additions in FP32 while quantizing all convolutional and linear layers to INT8.
+- **Deployment Tracing:** Converted FX graph modules were traced into standalone TorchScript artifacts (`.pt`) accompanied by structured JSON operator manifests.
+
+### 5.5 Synthetic Corruption Suite
+The corruption suite implements 6 synthetic image operations across 5 discrete severity levels (`configs/corruptions.yaml`):
+1. **Gaussian Noise:** Additive zero-mean Gaussian noise ($\sigma \in [0.04, 0.06, 0.08, 0.10, 0.12]$).
+2. **Gaussian Blur:** Spatial Gaussian blur filter ($\sigma \in [0.3, 0.5, 0.7, 0.9, 1.1]$).
+3. **Horizontal Motion Blur:** 1D horizontal linear convolution kernel ($\text{kernel length} \in [3, 5, 7, 9, 11]$).
+4. **Brightness Darkening:** Multiplicative intensity attenuation factors ($[0.90, 0.75, 0.60, 0.45, 0.30]$).
+5. **Contrast Attenuation:** Linear contrast attenuation factors relative to spatial mean ($[0.80, 0.60, 0.40, 0.20, 0.10]$).
+6. **JPEG Compression:** Lossy JPEG encoding quality factors ($[80, 60, 40, 20, 10]$).
+
+> **Methodology Boundary:** This is a **custom six-corruption evaluation suite**, not the official 15-corruption CIFAR-10-C benchmark (Hendrycks & Dietterich, 2019). Reported degradation metrics measure relative degradation against each model's own clean baseline, not AlexNet-normalized mean Corruption Error (mCE).
+
+- **Common Random Numbers (CRN) Mode:** For stochastic Gaussian noise, `derive_deterministic_seed()` (`src/edge_vision/corruptions/deterministic.py`) generates a 64-bit unsigned integer seed from a SHA-256 digest of `seed:sample_idx:corruption_name` (independent of severity). A base standard normal noise realization $\mathcal{N}(0, 1)$ is sampled once and scaled by the severity standard deviation, ensuring that spatial noise realization remains identical across severities 1 through 5 for any given image.
+
+---
+
+## 6. Experimental Results
+
+### 6.1 Clean Test Accuracy & Model Size
+
+| Model Architecture | Precision | Parameters | Disk Artifact Size | Byte Reduction vs FP32 | Clean Test Accuracy (10,000 samples) | Test Loss | Prediction Concordance vs FP32 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **ResNet-18** | FP32 | 11,173,962 | 44,775,947 B | Baseline (0.00%) | **94.78%** | 0.2003 | Baseline (100.0%) |
+| **ResNet-18** | FP16 | 11,173,962 | 22,408,843 B | **49.95%** | **94.78%** | 0.2003 | 99.99% (9,999 / 10,000) |
+| **ResNet-18** | INT8 | 11,173,962 | 11,296,669 B | **74.77%** | **94.81%** | 0.2003 | 99.64% (9,964 / 10,000) |
+| **MobileNetV3-Small** | FP32 | 1,528,106 | 6,249,979 B | Baseline (0.00%) | **86.51%** | 0.3896 | Baseline (100.0%) |
+| **MobileNetV3-Small** | FP16 | 1,528,106 | 3,169,467 B | **49.29%** | **86.49%** | 0.3896 | 99.94% (9,994 / 10,000) |
+| **MobileNetV3-Small** | INT8 | 1,528,106 | 1,942,499 B | **68.92%** | **86.18%** | 0.3957 | 95.47% (9,547 / 10,000) |
+
+*Notes on Serialization:* Artifact sizes represent exact `.pt` file sizes on disk. Decimal MB equivalents: ResNet FP32 = 44.78 MB, FP16 = 22.41 MB, INT8 = 11.30 MB; MobileNet FP32 = 6.25 MB, FP16 = 3.17 MB, INT8 = 1.94 MB. Binary MiB equivalents: ResNet FP32 = 42.70 MiB, FP16 = 21.37 MiB, INT8 = 10.77 MiB; MobileNet FP32 = 5.96 MiB, FP16 = 3.02 MiB, INT8 = 1.85 MiB.
+
+### 6.2 Robustness Across Precisions
+
+Evaluated across the complete held-out test partition (10,000 images per condition; 30 corrupted conditions = 300,000 evaluations per model configuration; 1,800,000 corrupted evaluations across all 6 configurations):
+
+| Model Architecture & Precision | Clean Accuracy | Mean Corrupted Accuracy (30 conditions) | Absolute Drop ($\Delta_{\text{pp}}$) | Relative Degradation | Lowest Accuracy Condition | Worst Condition Accuracy | Second Lowest Condition | Second Worst Accuracy |
+| :--- | :---: | :---: | :---: | :---: | :--- | :---: | :--- | :---: |
+| **ResNet-18 FP32** | 94.78% | 65.73% | 29.05 pp | 30.65% | Gaussian Noise S5 | **22.79%** | Contrast S5 | 24.18% |
+| **ResNet-18 FP16** | 94.78% | 65.73% | 29.05 pp | 30.65% | Gaussian Noise S5 | **22.81%** | Contrast S5 | 24.18% |
+| **ResNet-18 INT8** | 94.81% | 65.76% | 29.05 pp | 30.64% | Contrast S5 | **23.80%** | Gaussian Noise S5 | 24.03% |
+| **MobileNetV3-Small FP32** | 86.51% | 58.83% | 27.68 pp | 32.00% | Contrast S5 | **20.50%** | Gaussian Noise S5 | 21.44% |
+| **MobileNetV3-Small FP16** | 86.49% | 58.82% | 27.67 pp | 32.01% | Contrast S5 | **20.48%** | Gaussian Noise S5 | 21.49% |
+| **MobileNetV3-Small INT8** | 86.18% | 59.01% | 27.17 pp | 31.52% | Contrast S5 | **19.81%** | Gaussian Noise S5 | 21.19% |
+
+### 6.3 Metric Definitions
+- **Clean Accuracy ($\text{Acc}_{\text{clean}}$):** Accuracy on the uncorrupted CIFAR-10 test set ($N=10,000$).
+- **Mean Corrupted Accuracy ($\overline{\text{Acc}}_{\text{corrupt}}$):** Unweighted arithmetic mean accuracy across all 30 corrupted evaluation conditions:
+  $$\overline{\text{Acc}}_{\text{corrupt}} = \frac{1}{30} \sum_{c=1}^{6} \sum_{s=1}^{5} \text{Acc}_{c, s}$$
+- **Absolute Accuracy Drop ($\Delta_{\text{pp}}$):** Arithmetic difference in percentage points:
+  $$\Delta_{\text{pp}} = \text{Acc}_{\text{clean}} - \overline{\text{Acc}}_{\text{corrupt}}$$
+- **Relative Accuracy Degradation:** Proportional accuracy decline relative to clean accuracy:
+  $$\text{Relative Degradation} = \frac{\text{Acc}_{\text{clean}} - \overline{\text{Acc}}_{\text{corrupt}}}{\text{Acc}_{\text{clean}}}$$
+
+### 6.4 Per-Corruption Mean Accuracy Hierarchy
+
+Averaged across all 5 severity levels for each corruption type (FP32 baseline):
+
+| Corruption Type | ResNet-18 FP32 Mean Acc | ResNet-18 Drop vs Clean | MobileNetV3 FP32 Mean Acc | MobileNetV3 Drop vs Clean |
+| :--- | :---: | :---: | :---: | :---: |
+| **Brightness Darkening** | **90.66%** | 4.12 pp | **76.68%** | 9.83 pp |
+| **Contrast Attenuation** | **72.06%** | 22.72 pp | **56.49%** | 30.02 pp |
+| **Gaussian Blur** | **71.11%** | 23.67 pp | **66.12%** | 20.39 pp |
+| **JPEG Compression** | **67.83%** | 26.95 pp | **69.66%** | 16.85 pp |
+| **Horizontal Motion Blur** | **47.27%** | 47.51 pp | **41.47%** | 45.04 pp |
+| **Gaussian Noise** | **45.46%** | 49.32 pp | **42.54%** | 43.97 pp |
+
+*Observation:* While individual severity-5 contrast reduction produced the lowest individual test accuracy on MobileNetV3-Small (20.50%), **Gaussian noise** and **horizontal motion blur** produced the largest average degradation across severities 1 through 5, dropping average accuracy below 48% on ResNet-18 and below 43% on MobileNetV3-Small.
+
+---
+
+## 7. Inference Benchmarking
+
+The repository contains two distinct benchmarking suites with different measurement boundaries and objectives.
+
+### 7.1 Protocol 1: End-to-End Engine Benchmark (`scripts/benchmark_inference.py`)
+- **Objective:** Measure total wall-clock execution time for complete inference serving.
+- **Timing Boundary:** Includes batch tensor allocation, channel normalization, host-to-device transfer, model forward pass, softmax computation, and top-$k$ prediction formatting.
+- **Configuration:** 5 untimed warmup iterations followed by 20 timed repetitions across batch sizes `[1, 8, 32, 64]`. Evaluated on CPU and Apple Silicon MPS.
+- **Synchronization:** Explicit `torch.mps.synchronize()` is executed after every warmup and timed iteration when benchmarking on MPS.
+
+### 7.2 Protocol 2: Isolated CPU Microbenchmark (`scripts/benchmark_cpu_inference.py`)
+- **Objective:** Measure isolated forward-pass execution time on CPU across specific thread allocations.
+- **Process Isolation:** Each configuration is executed in an isolated child OS process to prevent thread-pool state retention across benchmark configurations.
+- **Timing Boundary:** Strictly measures `_ = model(input_tensor)` using pre-allocated contiguous tensors (excluding preprocessing, tensor decoding, and postprocessing).
+- **Configuration:** Evaluates thread counts `[1, 2, 4]` and batch sizes `[1, 64]` across Eager FP32, TorchScript FP32, and TorchScript INT8 (QNNPACK). Timed iterations: 100 runs for batch size 1 (20 warmup); 30 runs for batch size 64 (10 warmup). Two independent process repetitions per configuration.
+
+### 7.3 Measured CPU Forward-Pass Latency & Throughput
+
+Results from `reports/experiment_results/cpu_inference_benchmark.json` on Apple Silicon M3 CPU:
+
+| Model Architecture | Execution Variant | Batch Size | 1 Thread Mean Latency | 1 Thread Mean Throughput | 4 Threads Mean Latency | 4 Threads Mean Throughput |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **ResNet-18** | Eager FP32 | 1 | 4.88 ms | 204.8 fps | 3.79 ms | 263.7 fps |
+| **ResNet-18** | Eager FP32 | 64 | 720.64 ms | 88.8 fps | 295.12 ms | 216.8 fps |
+| **ResNet-18** | TorchScript FP32 | 1 | 4.40 ms | 227.1 fps | 3.48 ms | 287.6 fps |
+| **ResNet-18** | TorchScript FP32 | 64 | 715.19 ms | 89.5 fps | 295.06 ms | 216.9 fps |
+| **ResNet-18** | TorchScript INT8 | 1 | **10.89 ms** | **91.8 fps** | **3.08 ms** | **324.3 fps** |
+| **ResNet-18** | TorchScript INT8 | 64 | **695.09 ms** | **92.1 fps** | **186.97 ms** | **342.3 fps** |
+| **MobileNetV3-Small** | Eager FP32 | 1 | 4.08 ms | 245.4 fps | 23.80 ms | 42.0 fps |
+| **MobileNetV3-Small** | Eager FP32 | 64 | 335.59 ms | 190.7 fps | 263.02 ms | 243.3 fps |
+| **MobileNetV3-Small** | TorchScript FP32 | 1 | 3.78 ms | 264.5 fps | 23.47 ms | 42.7 fps |
+| **MobileNetV3-Small** | TorchScript FP32 | 64 | 335.78 ms | 190.6 fps | 261.49 ms | 244.8 fps |
+| **MobileNetV3-Small** | TorchScript INT8 | 1 | **0.42 ms** | **2,404.3 fps** | **0.48 ms** | **2,093.0 fps** |
+| **MobileNetV3-Small** | TorchScript INT8 | 64 | **17.31 ms** | **3,699.4 fps** | **5.48 ms** | **11,672.4 fps** |
+
+### 7.4 Latency Observations
+- **ResNet-18 Batch-1 Single-Thread INT8 Slower:** On 1 thread at batch size 1, ResNet-18 INT8 recorded higher mean latency than Eager FP32 (10.89 ms vs 4.88 ms). At batch size 64 across 4 threads, INT8 recorded lower latency than FP32 (186.97 ms vs 295.12 ms). Determining the precise hardware causes for this trade-off would require cache and profiling measurements beyond this study.
+- **MobileNetV3-Small Latency Profile:** MobileNetV3-Small INT8 recorded lower latency across all evaluated configurations (0.42 ms at batch 1 on 1 thread; 5.48 ms at batch 64 on 4 threads).
+- **MobileNetV3 Multi-Threading at Batch 1:** Multi-threading MobileNetV3-Small FP32 at batch size 1 increased mean latency from 4.08 ms (1 thread) to 23.80 ms (4 threads). The cause of this observed slowdown was not isolated.
+
+---
+
+## 8. System Architecture
+
+```mermaid
+flowchart TD
+    subgraph DataPipeline["1. Data Pipeline & Integrity"]
+        CIFAR["CIFAR-10 Dataset\n(50k Train / 10k Test)"]
+        Splits["Split Manager\n(45k Train / 5k Val / 10k Test)"]
+        SHA["SHA-256 Checksum\nVerification (<I Little-Endian)"]
+        CIFAR --> Splits --> SHA
+    end
+
+    subgraph TrainingPTQ["2. Model Training & Quantization"]
+        Train["100-Epoch SGD Baseline Trainer\n(ResNet-18 & MobileNetV3)"]
+        FP32Checkpoints["FP32 Baseline Checkpoints"]
+        FP16Casting["FP16 Half-Precision Casting"]
+        PTQEngine["PyTorch FX Graph Mode PTQ\n(512 Training Calibration Samples)"]
+        INT8TorchScript["INT8 TorchScript Artifacts\n(QNNPACK Backend)"]
+
+        SHA --> Train --> FP32Checkpoints
+        FP32Checkpoints --> FP16Casting
+        FP32Checkpoints --> PTQEngine --> INT8TorchScript
+    end
+
+    subgraph EvaluationSuite["3. Robustness & Benchmarking"]
+        CorruptSuite["6 Synthetic Corruptions × 5 Severities\n(Noise, Blur, Motion, Brightness, Contrast, JPEG)"]
+        CRN["Common Random Numbers (CRN)\n(SHA-256 Per-Image Seed Hashing)"]
+        BatchEval["Batch Robustness Evaluator\n(1.86M Total Evaluation Passes)"]
+        CPUBench["Isolated CPU Microbenchmarking\n(1, 2, 4 Threads; Batch 1, 64)"]
+
+        INT8TorchScript & FP32Checkpoints & FP16Casting --> BatchEval
+        CorruptSuite & CRN --> BatchEval
+        INT8TorchScript & FP32Checkpoints --> CPUBench
+    end
+
+    subgraph ServingFrontend["4. API Serving & Web Dashboard"]
+        FastAPIServer["FastAPI Local REST Server\n(Atomic RLock Model Swapping,\nBounded 10MB Streaming Uploads)"]
+        ReactUI["React 18 / TypeScript Web Dashboard\n(5 Analytical Routes, Recharts)"]
+
+        INT8TorchScript & FP32Checkpoints --> FastAPIServer
+        FastAPIServer <==>|Local HTTP REST| ReactUI
+    end
 ```
 
 ---
 
-## Getting Started
+## 9. API & Web Dashboard
 
-1. **Prerequisites**:
-   - Python 3.12 (`python3.12` or `python3`)
-   - Apple Silicon Mac (M-series, e.g., M3) or compatible environment
+### 9.1 FastAPI Local REST Service
+The serving layer (`src/edge_vision/api/`) provides a local HTTP inference service:
+- `GET /health` — Service health and uptime.
+- `GET /models` — List registered model configurations and artifact sizes.
+- `GET /models/current` — Current in-memory model metadata and resident device.
+- `POST /models/load` — Switch the active model (JSON payload: `{"model_name": "...", "precision": "...", "device": "..."}`).
+- `POST /predict` — Single image multipart upload inference (returns top-$k$ classes, probabilities, logits, and timings).
+- `POST /predict/batch` — Bounded batch upload inference (up to 64 images).
 
-2. **Setup Virtual Environment & Install Dependencies**:
-   ```bash
-   python3.12 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements-lock.txt
-   ```
+#### Upload Protection & Ingestion Limits
+- **Bounded Streaming Ingestion:** `read_bounded_upload()` (`service.py#L38`) reads uploads asynchronously in 64 KB chunks, halting and returning HTTP 400 if a file exceeds 10 MB or if an aggregate batch exceeds 64 MB.
+- **Image Dimension Checks:** `decode_image_bytes()` (`service.py#L75`) checks raster dimensions prior to full decompression, rejecting images where width or height exceeds 2048 pixels.
+- **In-Memory Buffer Handling:** File uploads are processed directly in memory byte buffers (`io.BytesIO`) without being written to host disk paths, avoiding temporary file creation and filesystem path handling on upload.
+- **CORS Policy:** Default allowed origins are restricted to local frontend development ports (`http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `http://127.0.0.1:4173`) and configurable via the `EDGE_VISION_CORS_ORIGINS` environment variable.
 
-3. **Run Environment & Hardware Verification**:
-   ```bash
-   python scripts/verify_env.py
-   ```
+### 9.2 Concurrency & Serving Lifecycle
+- **ModelManager Synchronization:** Model lifecycle is coordinated via `ModelManager` (`src/edge_vision/api/service.py`) using a single `threading.RLock()`.
+- **Atomic Reference Swapping:** During `POST /models/load`, the replacement `InferenceEngine` is instantiated and verified *prior* to acquiring the lock. The active engine pointer is then swapped under the lock (`self._engine = new_engine`).
+- **Prediction Serialization:** Prediction endpoints (`predict_single` and `predict_batch`) acquire `self._lock` for the duration of inference, serializing concurrent requests through the resident model.
+- **Automated Concurrency Testing:** Covered by `tests/test_api.py::test_concurrent_predictions_and_model_switching`, which executes 5 simultaneous prediction requests and 1 model-switch request using a `ThreadPoolExecutor(max_workers=6)`. All requests complete with HTTP 200 without raising unhandled exceptions.
+- **Operational Boundaries:** The single-lock design protects internal memory integrity but serializes concurrent predictions. It is not designed for high-concurrency multi-client production traffic, does not synchronize state across multi-process workers (such as Uvicorn with `--workers > 1`), and does not implement request timeout aborts during model loading.
 
-4. **CIFAR-10 Dataset & Pipeline Inspection**:
-   ```bash
-   python scripts/inspect_cifar10.py
-   ```
-   Inspects raw dataset integrity, validates train/val/test splits, tests batch tensor dimensions, and generates a visual sample grid at `reports/figures/cifar10_samples.png`.
-
-5. **Run Test Suite**:
-   ```bash
-   pytest -v
-   ```
-
----
-
-## Model Architecture Specifications
-
-- **ResNet-18 CIFAR Adaptation** (`resnet18_cifar`):
-  - Canonical $7\times 7$ (stride 2) stem convolution replaced with $3\times 3$ (stride 1, padding 1, no bias) convolution to preserve $32\times 32$ spatial resolution.
-  - Initial maxpool replaced with `nn.Identity()`.
-  - Linear classification head replaced with `nn.Linear(512, num_classes)`.
-  - Parameters: 11,173,962 (FP32 parameter memory: 44.70 MB).
-- **MobileNetV3-Small CIFAR Adaptation** (`mobilenet_v3_small_cifar`):
-  - Stem convolution modified to stride 1 (`features[0][0].stride = (1, 1)`), avoiding spatial collapse to $1\times 1$ at stage 9 and preventing single-element `BatchNorm2d` training failures with batch size 1 ($N \times H \times W = 4 > 1$).
-  - All 11 inverted residual blocks, internal squeeze-and-excitation modules, and pointwise convolution are preserved.
-  - Final projection in `classifier[3]` replaced with `nn.Linear(1024, num_classes)`.
-  - Parameters: 1,528,106 (FP32 parameter memory: 6.11 MB).
-- **Model Factory & Registry**:
-  - `get_model(name, num_classes=10)` dynamically instantiates registered architectures with explicit input validation.
+### 9.3 React Analytical Dashboard
+The frontend (`frontend/`) is a React 18, TypeScript, Tailwind CSS, and Recharts single-page application providing 5 analytical routes:
+- `/` — **Research Overview:** High-level project summary, precision variant comparison matrix, clean accuracy baselines, and methodology limitations.
+- `/inference` — **Live Inference Workstation:** Interactive testing workstation connected to the FastAPI backend, supporting model loading, drag-and-drop image prediction, top-$k$ confidence visualization, and side-by-side model comparison.
+- `/comparison` — **Model Comparison:** Head-to-head architectural analysis, Pareto frontier curves, and memory-accuracy trade-offs.
+- `/robustness` — **Robustness Laboratory:** Granular degradation inspection across 6 corruption types and 5 severity levels with vulnerability rankings.
+- `/efficiency` — **Efficiency Explorer:** Multi-metric efficiency trade-off explorer (model size, latency, throughput, and accuracy).
 
 ---
 
-## Baseline Model Performance (100-Epoch FP32 Experiments)
+## 10. Limitations & Scientific Caveats
 
-Both architectures were trained from scratch for 100 epochs under an identical controlled baseline recipe (`configs/train_baseline.yaml`: SGD, lr 0.05, momentum 0.9, weight decay $5\times 10^{-4}$, CosineAnnealingLR, batch size 64, seed 42) on Apple Silicon MPS:
-
-| Architecture | Experiment ID | Parameters | Checkpoint Size (Disk) | Peak Val Acc (Epoch) | Min Val Loss (Epoch) | Test Acc (10,000 samples) | Test Loss | MPS Wall Time |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ResNet-18** (`resnet18_cifar`) | `exp_baseline_resnet18_seed42` | 11,173,962 | 89.51 MB (85.36 MiB) | **95.50%** (Ep 97) | 0.1814 (Ep 98) | **94.78%** | 0.2003 | 2.64 hours |
-| **MobileNetV3-Small** (`mobilenet_v3_small_cifar`) | `exp_baseline_mobilenet_v3_small_seed42` | 1,528,106 | 12.42 MB (11.85 MiB) | **86.86%** (Ep 98) | 0.3649 (Ep 98) | **86.51%** | 0.3896 | 0.76 hours |
-
-- **Generalization Metrics**:
-  - ResNet-18 exhibited a training-to-validation gap of 4.54% (99.96% train vs 95.42% val at Ep 100) and a validation-to-test difference of 0.72% (95.50% vs 94.78%).
-  - MobileNetV3-Small exhibited a training-to-validation gap of 2.76% (89.42% train vs 86.66% val at Ep 100) and a validation-to-test difference of 0.35% (86.86% vs 86.51%).
-- **Per-Class Dynamics**: Both networks performed highest on rigid vehicle categories (>91% test accuracy) and lowest on fine-textured animal categories, with cat/dog confusion accounting for the majority of classification errors (cats: 88.8% for ResNet-18 vs 70.4% for MobileNetV3-Small).
-- **Scope & Methodological Limitations**: Results represent an initial single random seed (seed 42) on low-resolution $32\times 32$ CIFAR-10 imagery. Full multi-seed variance will be measured in subsequent benchmarks.
-- **Learning Curves & Visualizations**: Detailed loss, accuracy, and comparison plots are available under `reports/figures/`:
-  - `baseline_resnet18_loss.png` & `baseline_resnet18_accuracy.png`
-  - `baseline_mobilenet_loss.png` & `baseline_mobilenet_accuracy.png`
-  - `baseline_learning_rate.png`
-  - `baseline_validation_comparison.png` & `baseline_per_class_test_accuracy.png`
+1. **Single Training Seed:**
+   Baseline models were trained under a single random seed (`seed=42`). Evaluation is reproducible under fixed inputs and deterministic settings, while split-index integrity is verified using SHA-256 checksums. Minor accuracy differences across precisions (such as ResNet-18 INT8 achieving +0.03 pp clean accuracy) fall within stochastic training variance and do not establish that quantization provides an algorithmic regularization benefit.
+2. **Custom Corruptions vs. Official CIFAR-10-C:**
+   The synthetic corruption suite evaluates 6 custom mathematical transformations. It does *not* constitute the official 15-corruption CIFAR-10-C benchmark (Hendrycks & Dietterich, 2019). Metrics measure degradation relative to each model's own clean baseline and cannot be equated with official AlexNet-normalized mean Corruption Error (mCE).
+3. **Synthetic Transformations vs. Physical Degradation:**
+   Perturbations are algorithmic approximations (e.g. 1D horizontal motion blur, scalar darkening). They do not model physical camera lens distortions, rolling shutter artifacts, high-key glare, or real-world atmospheric conditions.
+4. **Resolution Boundary:**
+   Evaluations are conducted on $32 \times 32$ CIFAR-10 images. Memory access patterns and compute-to-bandwidth ratios differ substantially on megapixel camera streams.
+5. **Hardware Scope:**
+   Inference benchmarks reflect Apple Silicon M3 microarchitecture. INT8 execution is supported on CPU via QNNPACK; Apple Silicon MPS does not support PyTorch integer quantization operators.
+6. **Absence of Predictive Calibration:**
+   The repository does not implement Expected Calibration Error (ECE) or temperature scaling; calibration in this codebase refers strictly to activation observer calibration for INT8 PTQ.
+7. **Single-Node Serving Architecture:**
+   The FastAPI model manager maintains in-memory state protected by a single process lock. It is not designed for distributed, multi-worker container deployments.
 
 ---
 
-## Training Infrastructure & Reproducibility
+## 11. Future Work
 
-- **Trainer Interface & Test-Set Isolation**:
-  - `Trainer` accepts strictly `train_loader` and `val_loader`.
-  - `test_loader` is completely excluded from the training API to eliminate test-set leakage.
-  - Checkpoint selection and early stopping decisions are governed solely by validation metrics.
-- **Reproducibility & RNG State Management**:
-  - `set_seed(seed)` initializes Python `random`, NumPy, PyTorch CPU, and Apple Silicon MPS.
-  - `get_rng_states()` and `set_rng_states()` capture and restore the complete PRNG state, including the dedicated `torch.Generator` assigned to the training DataLoader.
-  - Guarantees exact bitwise reproducibility upon epoch-boundary checkpoint resume.
-- **Atomic Checkpoint Management**:
-  - Checkpoints are saved to process-unique temporary files (`.tmp.<pid>`) and atomically replaced via `os.replace` to prevent corrupted checkpoints upon process interruption.
-  - Stores full `model.state_dict()` (including BatchNorm running statistics), optimizer state, scheduler state, RNG states, and configuration metadata.
-  - Serialized checkpoint sizes with SGD momentum: ResNet-18 is 89.51 MB (85.36 MiB); MobileNetV3-Small is 12.42 MB (11.85 MiB).
-- **Hardware Acceleration**:
-  - Supports `cpu`, `mps`, and `auto` device selection.
-  - Hardware smoke testing confirmed Apple Silicon MPS provides $1.3\times$ to $2.1\times$ faster training throughput and $6.5\times$ to $7.8\times$ faster validation throughput than CPU while using modest unified memory footprint (<300 MB process RSS).
+1. **Multi-Seed Replication:** Train baselines across 5 independent random seeds (`[42, 101, 2024, 7, 99]`) to report mean $\pm$ standard deviation confidence intervals for accuracy and degradation metrics.
+2. **Official CIFAR-10-C Evaluation:** Ingest the complete 15-corruption CIFAR-10-C dataset to compute official AlexNet-normalized mean Corruption Error (mCE).
+3. **Predictive Calibration Analysis (Optional):** Implement Expected Calibration Error (ECE), reliability diagrams, and temperature scaling to evaluate confidence calibration under distribution shift.
+4. **Quantization-Aware Training (QAT) (Optional):** Implement fine-tuning with fake-quantization operators to test whether MobileNet residual additions can be quantized to INT8 without QNNPACK assertion failures.
+5. **Edge Accelerator Compilation (Optional):** Evaluate CoreML (Apple Neural Engine) and ONNX Runtime backends.
+6. **Container Packaging (Optional):** Author multi-stage Docker and Docker Compose definitions for deployment packaging.
 
 ---
 
-## Standalone Checkpoint Evaluation
+## 12. Reproducibility & Setup
 
-The standalone evaluation infrastructure (`src/edge_vision/evaluation/`) provides decoupled, hermetic evaluation of trained model checkpoints without requiring the training engine:
+### Prerequisites
+- macOS (Apple Silicon recommended) or Linux
+- Python 3.12 (`python3.12` or `python3`)
+- Node.js 18+ and npm (for frontend dashboard)
 
-- **Strict Model Reconstruction**: `load_checkpoint_for_evaluation()` automatically parses checkpoint architecture metadata and loads model weights with `strict=True`.
-- **Pure Unaugmented Transforms**: Evaluates strictly with canonical CIFAR-10 normalization, bypassing random cropping and horizontal flipping.
-- **Inference Mode & Model Freeze**: Enforces `model.eval()`, parameter gradient disabling (`requires_grad=False`), and `torch.inference_mode()`.
-- **Comprehensive Metrics**: Computes sample-weighted cross-entropy loss, top-1 accuracy, per-class counts and accuracy, and a complete $10 \times 10$ confusion matrix, enforcing mathematical consistency assertions ($\sum C = N$, $\text{trace}(C) = N_{\text{correct}}$).
-- **Atomic Serialization**: Persists evaluation results atomically to JSON via temporary files and `os.replace`.
-
-### Running Standalone Evaluation
-
+### 1. Python Environment Setup
 ```bash
-# Evaluate a checkpoint on the validation split
-python scripts/evaluate_checkpoints.py \
-  --checkpoint experiments/exp_pilot_resnet18/checkpoints/best_checkpoint.pt \
-  --split val \
-  --device auto \
-  --batch-size 64 \
-  --output reports/experiment_results/eval_val_resnet18.json
+# Clone repository
+git clone https://github.com/sushantydv01/edge-vision-reliability-lab.git
+cd edge-vision-reliability-lab
 
-# Evaluate on the held-out test split (reserved for final benchmark evaluation)
-python scripts/evaluate_checkpoints.py \
-  --checkpoint experiments/exp_pilot_resnet18/checkpoints/best_checkpoint.pt \
-  --split test \
-  --device auto \
-  --batch-size 64 \
-  --output reports/experiment_results/eval_test_resnet18.json
+# Create and activate virtual environment
+python3.12 -m venv .venv
+source .venv/bin/activate
+
+# Install strictly pinned dependencies
+pip install -r requirements-lock.txt
 ```
 
----
-
-## Deterministic Synthetic Image Corruption Suite
-
-The corruption engine (`src/edge_vision/corruptions/`) provides a clean, modular, and mathematically reproducible platform for synthesizing environmental and digital image degradations to evaluate out-of-distribution robustness.
-
-> **Research Scope**: This is a custom, deterministic synthetic corruption suite inspired by common corruption benchmarks (such as Hendrycks & Dietterich 2019) and tailored for CIFAR-10 resolution ($32\times 32\times 3$). It is an independent experimental implementation, not an official CIFAR-10-C release.
-
-### Supported Corruptions & Implemented Severity Levels
-
-Each corruption defines five progressive severity levels (1 to 5) centralized in [`configs/corruptions.yaml`](configs/corruptions.yaml):
-
-| Corruption Name | Parameter | Severity 1 | Severity 2 | Severity 3 | Severity 4 | Severity 5 | Description & Operational Details |
-| :--- | :--- | ---:| ---:| ---:| ---:| ---:| :--- |
-| `gaussian_noise` | $\sigma_{\text{norm}}$ ($[0, 1]$) | 0.04 | 0.06 | 0.08 | 0.10 | 0.12 | Additive zero-mean Gaussian noise scaled by 255.0 to uint8 pixel range. |
-| `gaussian_blur` | $\sigma$ (pixels) | 0.3 | 0.5 | 0.7 | 0.9 | 1.1 | Spatial 2D Gaussian filter (`scipy.ndimage.gaussian_filter`, reflect mode, per-channel). |
-| `motion_blur` | $K$ (pixels) | 3 | 5 | 7 | 9 | 11 | Horizontal 1D linear motion blur ($1/K$ averaging kernel, reflect mode). |
-| `brightness` | factor | 0.90 | 0.75 | 0.60 | 0.45 | 0.30 | Multiplicative darkening ($I' = \text{clip}(\text{round}(I \times \text{factor}))$, progressive darkening). |
-| `contrast` | factor | 0.80 | 0.60 | 0.40 | 0.20 | 0.10 | Linear scaling around spatial channel mean ($I' = \mu_c + \text{factor} \times (I - \mu_c)$). |
-| `jpeg_compression` | quality | 80 | 60 | 40 | 20 | 10 | In-memory JPEG compression and decompression artifacts via PIL and `io.BytesIO`. |
-
-### Architectural Design & Invariants
-
-1. **Input / Output Contract**:
-   - Accepts raw RGB images as NumPy arrays of shape $(H, W, 3)$ with `uint8` values in $[0, 255]$.
-   - Validates shape, channels ($C=3$), dtype (`uint8`), and severity level ($1 \le \text{severity} \le 5$).
-   - Returns a freshly allocated NumPy array of identical shape and dtype with valid pixels in $[0, 255]$.
-   - Strictly non-destructive: original input arrays are never modified in-place.
-2. **Pre-Normalization Execution**:
-   - Corruptions are executed on raw uint8 pixel arrays *before* torchvision `ToTensor` (conversion to $[0, 1]$ float) and `Normalize` (zero-mean standardization).
-3. **Deterministic Seeding & Common Random Numbers (CRN)**:
-   - For stochastic operations (`gaussian_noise`), seeds are computed from `(seed, sample_idx, corruption_name)` via SHA-256 digest:
-     ```python
-     token = f"{seed}:{sample_idx}:{corruption_name}"
-     digest = hashlib.sha256(token.encode("utf-8")).digest()
-     derived_seed = struct.unpack(">Q", digest[:8])[0]
-     ```
-   - **Common Random Numbers (CRN)**: Under the default CRN design, a standardized noise field $\xi \sim \mathcal{N}(0, 1)$ is sampled once per image sample and scaled proportionally by $\sigma = \text{std\_norm} \times 255.0$ across severity levels. This guarantees *ceteris paribus* severity comparisons: increasing severity scales the magnitude of the exact same spatial noise realization rather than introducing random spatial variance. Independent streams per severity can be selected via `use_common_random_numbers=False`.
-   - Eliminates dependence on Python's randomized process `hash()` seed, DataLoader worker scheduling, batch sizes, or shuffle ordering. Cross-process determinism was empirically verified via isolated Python subprocesses with varying `PYTHONHASHSEED`.
-   - NumPy's global random state (`np.random.get_state()`) is never altered and has zero effect on corruption outputs.
-4. **Lightweight Dataset Adapter (`CorruptedDataset`)**:
-   - Wraps torchvision `CIFAR10`, `TransformedSubset`, or `torch.utils.data.Subset` instances without copying or duplicating the underlying 153.6 MB raw dataset in host memory.
-   - Recursively resolves canonical dataset sample indices to ensure bitwise identical noise realization for identical samples across re-evaluations and multi-model benchmarking.
-   - Fails explicitly with an informative `TypeError` for unsupported datasets (e.g., `TensorDataset` or pre-transformed tensors).
-5. **Configuration Single Source of Truth**:
-   - [`configs/corruptions.yaml`](configs/corruptions.yaml) is the single authoritative source of truth for severity parameters.
-   - Python code dynamically populates `CORRUPTION_REGISTRY` without duplicate hardcoded parameter tables.
-
-### Public API Usage Example
-
-```python
-import numpy as np
-from edge_vision.corruptions import (
-    apply_corruption,
-    list_corruptions,
-    CorruptedDataset,
-    get_corrupted_dataloader,
-)
-from edge_vision.data.transforms import get_cifar10_transforms
-import torchvision.datasets as datasets
-
-# 1. Inspect supported operations
-print(list_corruptions())
-# ['brightness', 'contrast', 'gaussian_blur', 'gaussian_noise', 'jpeg_compression', 'motion_blur']
-
-# 2. Corrupt a single raw CIFAR-10 image array (32x32x3 uint8)
-raw_img = np.random.randint(0, 256, (32, 32, 3), dtype=np.uint8)
-corrupted_img = apply_corruption(
-    image=raw_img,
-    name="gaussian_noise",
-    severity=3,
-    seed=42,
-    sample_idx=100,
-)
-assert corrupted_img.shape == (32, 32, 3) and corrupted_img.dtype == np.uint8
-
-# 3. Create a Corrupted DataLoader over the CIFAR-10 test set
-test_dataset = datasets.CIFAR10(root="data/raw", train=False, download=False, transform=None)
-eval_transform = get_cifar10_transforms(train=False, augment=False)
-
-corrupted_loader = get_corrupted_dataloader(
-    base_dataset=test_dataset,
-    corruption_name="motion_blur",
-    severity=4,
-    transform=eval_transform,
-    batch_size=64,
-)
-```
-
-### Limitations & Roadmap
-
-- **Motion Blur Kernel**: Initial version implements pure horizontal linear motion blur (orientation 0 degrees); arbitrary angle kernels can be added if justified.
-- **Illumination Range**: Initial brightness suite tests progressive darkening ($0.90 \to 0.30$) rather than bilateral overexposure.
-- **Weather Corruptions**: Excluded from initial suite; reserved for future evaluation milestones if physical domain transfer requires them.
-
----
-
-## FP32 Robustness Evaluation Engine
-
-The robustness evaluation engine (`src/edge_vision/evaluation/robustness.py`) evaluates model predictive reliability across clean and synthetically corrupted image conditions.
-
-### Evaluation Workflow & Guarantees
-- **Shared-Batch Presentation**: Both candidate models (`resnet18_cifar` and `mobilenet_v3_small_cifar`) are evaluated on the exact same in-memory tensor batch sequentially, eliminating input divergence across architectures.
-- **31 Evaluation Conditions**: Clean test set + 6 corruptions $\times$ 5 severities = 31 conditions (62 evaluations, 620,000 total predictions across the 10,000 test set images).
-- **Metric Definitions**:
-  - Absolute Accuracy Drop ($\text{pp}$): $(\text{clean\_acc} - \text{corrupted\_acc}) \times 100.0$
-  - Relative Accuracy Drop: $(\text{clean\_acc} - \text{corrupted\_acc}) / \text{clean\_acc}$
-  - Aggregates: Arithmetic mean corrupted accuracy and mean drop (overall, per-corruption, per-severity).
-  - Timing Semantics (`condition_wall_time_seconds`): Condition wall-clock time measures the complete shared evaluation loop, including DataLoader iteration, corruption generation, preprocessing, device transfer, both model forward passes, and metric tracking. It is not an isolated per-model inference latency measurement (dedicated latency profiling is reserved for Milestone 4).
-- **Atomic Outputs & Overwrite Protection**:
-  - Preserves `metadata.json`, `results.csv`, `results.json`, and `summary.json` via atomic process-unique temporary files and `os.replace`.
-  - Rejects execution if the output directory already contains completed benchmark artifacts unless `--overwrite` is explicitly specified.
-
-### CLI Usage
-
+### 2. Run Test Suite (284 Tests)
 ```bash
-# Run smoke test (128 samples, clean + gaussian noise sev 1)
-python scripts/run_robustness_benchmark.py --smoke-test --device auto
-
-# Run custom subset evaluation
-python scripts/run_robustness_benchmark.py \
-  --models resnet18_cifar mobilenet_v3_small_cifar \
-  --corruptions gaussian_noise motion_blur \
-  --severities 1 3 5 \
-  --max-samples 1000 \
-  --device auto
-
-# Execute full 620,000-prediction benchmark (requires --full-run; add --overwrite if re-running)
-python scripts/run_robustness_benchmark.py \
-  --full-run \
-  --device auto \
-  --output-dir experiments/robustness_fp32_seed42
-
-# Generate analytical robustness plots
-python scripts/generate_robustness_plots.py
+pytest tests/ -v
 ```
 
-### FP32 Robustness Baseline Results (Seed 42)
-
-Evaluated across 10,000 held-out CIFAR-10 test images under clean and 30 corrupted conditions (6 corruptions $\times$ 5 severities, 620,000 total predictions):
-
-| Metric | ResNet-18 (FP32) | MobileNetV3-Small (FP32) | Delta ($\Delta = \text{ResNet} - \text{MobileNet}$) |
-| :--- | ---:| ---:| ---:|
-| Clean Accuracy | **94.78%** | 86.51% | +8.27 pp |
-| Mean Corrupted Accuracy | **65.73%** | 58.83% | +6.90 pp |
-| Mean Absolute Accuracy Drop | 29.05 pp | **27.68 pp** | +1.37 pp (ResNet drops slightly more in abs pp) |
-| Mean Relative Accuracy Drop | **30.65%** | 32.00% | -1.35% (MobileNet degrades slightly more relatively) |
-| Worst Corruption Type | `gaussian_noise` (45.46%) | `motion_blur` (41.47%) | Architecture-dependent vulnerability |
-| Worst Single Condition | `gaussian_noise_sev5` (22.79%) | `contrast_sev5` (20.50%) | Catastrophic degradation under extreme noise/contrast |
-
-#### Key Empirical Insights
-- **Robustness Metric Duality**: ResNet-18 exhibits higher clean and overall corrupted accuracy, but MobileNetV3-Small exhibits lower absolute accuracy drop in percentage points (27.68 pp vs. 29.05 pp). Conclusions regarding which model is "more robust" depend strictly on whether absolute drop or relative degradation is evaluated.
-- **JPEG Compression Crossover**: In this benchmark, MobileNetV3-Small achieved higher empirical accuracy than ResNet-18 under severe JPEG compression (quality 40: 73.91% vs. 73.38%; quality 20: 65.45% vs. 59.25%; quality 10: 50.65% vs. 40.61%). The specific architectural mechanisms behind this difference have not been isolated experimentally and remain an open research question.
-- **Experimental Scope & Limitations**:
-  - Image inputs are $32\times 32$ CIFAR-10 resolution; findings should not be assumed to hold for higher-resolution domains.
-  - The corruption engine is an independent custom synthetic suite, not official CIFAR-10-C.
-  - Motion blur is horizontal-only; brightness is darkening-only.
-  - Evaluations reflect a single fixed seed (seed 42); multi-seed variance has not been evaluated.
-  - Synthetic degradations do not establish real-world camera lens or environmental degradation performance.
-
----
-
-## Data Pipeline Specifications
-
-- **Dataset**: Official CIFAR-10 (torchvision implementation, stored under `data/raw/`).
-- **Data Partitioning**:
-  - **Training Set**: 45,000 images (derived deterministically with seed `42`).
-  - **Validation Set**: 5,000 images (non-overlapping subset for hyperparameter/checkpoint evaluation).
-  - **Test Set**: 10,000 images (strictly held-out benchmark partition).
-- **Split Generation & Reproducibility**:
-  - Deterministically generated via `torch.Generator().manual_seed(seed)` and `torch.randperm(50000)`.
-  - Partition disjointness, length constraints, and 100% dataset coverage are strictly validated at runtime.
-  - Verification manifest persisted at [`configs/cifar10_split_manifest.json`](configs/cifar10_split_manifest.json) (<1 KB) storing SHA-256 partition checksums, PyTorch version, algorithm tags, and boundary verification samples.
-  - If the requested seed differs from the manifest, the pipeline automatically regenerates the split for the requested seed rather than silently reusing stale indices.
-  - If a checksum mismatch occurs for the configured seed (e.g. across major PyTorch releases), the pipeline raises an explicit error and requires intentional manifest regeneration via `force_regenerate=True`.
-- **Canonical Normalization**:
-  - Mean: `(0.4914, 0.4822, 0.4465)`
-  - Standard Deviation: `(0.2470, 0.2435, 0.2616)`
-- **Memory-Conscious Architecture**:
-  - `TransformedSubset` implements a lightweight indexed view with on-the-fly transforms over a shared underlying dataset object. The 153.6 MB raw image array is loaded once and shared between train and validation splits without memory duplication.
-  - Default batch size: `64`.
-  - Default worker count: `0` (avoiding process-forking memory overhead on macOS).
-  - Pinned memory: Disabled by default for conservative host memory footprint.
-
-- **Current Reproducibility Limitations**:
-  - **PyTorch PRNG Versioning**: PyTorch does not guarantee bit-for-bit identical `torch.randperm` permutations across future major versions. Checksum verification in `get_or_create_split_indices` detects any PRNG drift and requires explicit intentional regeneration (`force_regenerate=True`).
-  - **Worker Concurrency**: Determinism is strictly verified with `num_workers=0`. When multi-worker training is introduced in subsequent milestones, deterministic `worker_init_fn` seeding will be evaluated.
-
----
-
-## Inference & Benchmarking (Milestone 4)
-
-A unified inference subsystem and benchmarking harness for executing and profiling all six CIFAR-10 model/precision variants.
-
-### Environment & Hardware Assumptions
-- **Python**: 3.12 (virtual environment at `.venv`)
-- **PyTorch**: 2.5+ with Torchvision and Pillow installed
-- **Hardware Profile**: Apple Silicon Mac (M3, 8 GB unified memory); CPU and MPS supported
-
-### Supported Model & Device Configurations
-
-| Architecture | Precision | Backend | Supported Devices | Operational Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| `resnet18_cifar` | `fp32` | PyTorch Eager | CPU, MPS | Canonical baseline |
-| `resnet18_cifar` | `fp16` | PyTorch Eager | MPS (preferred), CPU | Observed substantial CPU slowdown compared to FP32 |
-| `resnet18_cifar` | `int8` | TorchScript | CPU only | Strictly CPU-bound via QNNPACK backend |
-| `mobilenet_v3_small_cifar` | `fp32` | PyTorch Eager | CPU, MPS | Inverted residual baseline |
-| `mobilenet_v3_small_cifar` | `fp16` | PyTorch Eager | MPS (preferred), CPU | Observed substantial CPU slowdown compared to FP32 |
-| `mobilenet_v3_small_cifar` | `int8` | TorchScript | CPU only | Strictly CPU-bound via QNNPACK backend |
-
-> [!NOTE]
-> INT8 models cannot run on Apple Silicon MPS because PyTorch does not implement quantized operators on MPS. Attempting to select `mps` for `int8` raises an explicit `DeviceCompatibilityError`.
-
-### CLI Usage: Single Image Inference
-
+### 3. Verify Dataset Pipeline & Splits
 ```bash
-# Basic single image inference on Apple Silicon MPS
-python scripts/infer.py --image path/to/image.png --model resnet18_cifar --precision fp16 --device mps --top-k 5
-
-# Enable bilinear resizing for non-32x32 images
-python scripts/infer.py --image path/to/high_res.jpg --model mobilenet_v3_small_cifar --precision fp32 --resize
-
-# Output machine-readable JSON (human messages routed to stderr)
-python scripts/infer.py --image path/to/image.png --model resnet18_cifar --json --output result.json
+python scripts/inspect_cifar10.py
 ```
 
-### CLI Usage: Batch Directory Inference
-
-Processes image directories in deterministic sorted order with bounded batching to prevent unbounded memory consumption:
-
+### 4. Running Benchmarks
 ```bash
-# Process directory of images in batches of 32
-python scripts/infer.py --dir path/to/images/ --model resnet18_cifar --precision fp32 --batch-size 32
+# End-to-end engine benchmark (CPU & MPS)
+python scripts/benchmark_inference.py --batch-sizes 1,8,32,64 --warmup 5 --repetitions 20
 
-# With explicit error recording policy (continues on unreadable files and logs them)
-python scripts/infer.py --dir path/to/images/ --model mobilenet_v3_small_cifar --precision int8 --on-error record --output batch_results.json
+# Isolated CPU microbenchmark (1, 2, 4 threads; batch 1, 64)
+python scripts/benchmark_cpu_inference.py --output-file reports/experiment_results/cpu_inference_benchmark.json
 ```
 
-### Resize Behavior
-- **Default (`--resize` omitted)**: Strictly rejects images whose spatial dimensions are not $32\times 32$, raising an explicit `InvalidInputError`.
-- **Enabled (`--resize` supplied)**: Applies deterministic bilinear interpolation with antialiasing to scale arbitrary image dimensions to $32\times 32$ before canonical CIFAR-10 normalization.
-
-### Benchmark Runner
-
-Reproducibly profiles model load latency, steady-state batch throughput, and component latency breakdowns:
-
+### 5. Running the FastAPI Backend
 ```bash
-# Quick sanity smoke test (batch sizes 1 and 8, 2 repetitions)
-python scripts/benchmark_inference.py --smoke-test --output-dir experiments/inference_benchmarks/smoke_run
-
-# Comprehensive benchmark across all 6 model/precision variants and batch sizes (1, 8, 32, 64)
-python scripts/benchmark_inference.py \
-  --models resnet18_cifar mobilenet_v3_small_cifar \
-  --precisions fp32 fp16 int8 \
-  --batch-sizes 1,8,32,64 \
-  --warmup 5 \
-  --repetitions 20 \
-  --output-dir experiments/inference_benchmarks/run_full
-```
-
-#### Benchmark Output Structure
-Results are saved to:
-- `benchmark_summary.csv`: Tabular CSV with median, mean, p95, per-image latency, total engine throughput (FPS), forward-path latency, forward-only throughput (FPS), and load times.
-- `benchmark_results.json`: Comprehensive machine-readable report containing platform/PyTorch versions, Git commit hash, artifact checksums, random seeds, and raw measurements.
-
-### Benchmark Methodology & Performance Analysis
-
-#### 1. CPU Threading Configuration & Sensitivity
-- **Runtime Defaults**: Task 4.4 benchmark runs were conducted under unpinned PyTorch runtime defaults on Apple Silicon M3 (`torch.get_num_threads() == 4`, `torch.get_num_interop_threads() == 8`). Thread counts were not explicitly pinned or restricted by the benchmark runner.
-- **Thread Sensitivity**: CPU inference performance—most notably single-image (batch-1) latency for lightweight architectures like MobileNetV3-Small—is highly sensitive to thread configuration. On lightweight architectures with small tensor footprints, multi-threading overhead can dominate execution time at small batch sizes.
-
-#### 2. Comparisons with Prior Benchmarks (Task 5.3C)
-- **Harness Differences**: Prior CPU benchmarks in Task 5.3C executed in isolated child processes with explicitly pinned thread counts (`threads=1, 2, 4`), whereas Task 4.4 used a single shared process under default threading (`threads=4`, `interop_threads=8`).
-- **Consistency**: Task 4.4's MobileNetV3-Small FP32 batch-1 forward latency (~25.7 ms) is consistent with Task 5.3C's 4-thread result (~24.2 ms), rather than its 1-thread result (~4.0 ms).
-- **Non-Interchangeability**: Thread count is not conclusively proven as the sole cause of every difference across benchmark suites. Process isolation, harness warm-up, timing scopes, memory allocator behavior, and background host activity also differ; measurements from different harnesses are not directly interchangeable.
-
-#### 3. Empirical Observations vs. Causal Hypotheses
-- **Thread-Pool Overhead**: Thread-pool synchronization and scheduling overhead are plausible hypotheses for multi-threaded batch-1 latency degradation on small networks, but they remain hypotheses rather than definitively proven hardware mechanisms.
-- **CPU FP16 Slowdown**: ResNet-18 FP16 on CPU exhibits severe throughput degradation (~13.6 FPS at batch 64 compared to ~207.8 FPS for FP32). This is documented strictly as an empirical observation under PyTorch 2.5 on Apple Silicon ARM64 CPU. Hypotheses such as missing vector GEMM kernels or scalar software emulation are unverified without low-level hardware performance counter traces and are not asserted as established causes.
-- **Separation of Concerns**: In all project documentation, measured empirical findings are kept strictly separated from explanatory hypotheses.
-
-#### 4. Throughput & Latency Interpretation
-- **Total Engine Throughput vs. Forward-Only Throughput**: Headline throughput figures reported in the benchmark (`throughput_fps`) reflect **total engine throughput** calculated from median total latency (`median_total_ms`), not forward-only execution:
-  - For MobileNetV3-Small INT8 at batch 64 on Apple M3 CPU (4 intra-op threads, QNNPACK), median total engine latency is 8.253 ms, resulting in headline total engine throughput of **7,754.8 images/sec**.
-  - Total engine latency encompasses the entire in-memory inference pipeline: image preprocessing (`preprocess_batch_images`: tensor conversion, NCHW permutation, scaling, and CIFAR-10 normalization), forward-path execution, device synchronization (where applicable), CPU transfer, and prediction formatting (softmax and top-$k$ extraction).
-  - By contrast, **forward-only throughput** (`forward_only_throughput_fps`) is derived from **forward-path latency** (`median_forward_ms`): this measures model forward execution plus applicable input tensor casting/device transfer (`_prepare_tensor_for_forward`) and pipeline synchronization (`torch.mps.synchronize()`). For MobileNetV3-Small INT8 at batch 64, median forward-path latency is **5.550 ms**, yielding forward-only throughput of **11,531.5 images/sec**.
-  - Similarly, for MobileNetV3-Small FP16 on MPS at batch 64, total engine throughput is **5,986.3 images/sec** (median total latency 10.691 ms), while forward-only throughput reaches **8,408.9 images/sec** (median forward-path latency **7.611 ms**). For ResNet-18 FP16 on MPS at batch 64, total engine throughput is **2,128.8 images/sec** (30.064 ms), while forward-only throughput is **2,357.7 images/sec** (median forward-path latency **27.145 ms**).
-- **In-Memory Input vs. Pre-Allocated Tensors**: The benchmark operates on in-memory synthetic image batches (NumPy `uint8` arrays of shape $(B, 32, 32, 3)$) rather than pre-allocated normalized tensors, thereby exercising the complete preprocessing, execution, and postprocessing pipeline of the engine.
-- **Exclusion of Disk and Camera I/O**: Both total engine throughput and forward-only throughput are strictly **in-memory benchmarks**. Neither metric represents end-to-end disk/camera pipeline throughput, where storage read/write, file decoding (Pillow/libjpeg from compressed JPEG/PNG bytes), and camera frame acquisition form the primary latency bottleneck.
-- **INT8 Is Not Universally Faster**: Quantization does not universally outperform full precision across all hardware and models:
-  - In Task 5.3C single-thread testing (`threads=1`, `batch_size=1`), ResNet-18 INT8 was substantially slower than FP32: **10.937 ms** median forward latency for INT8 vs. **4.805 ms** for eager FP32 (and **4.414 ms** for TorchScript FP32) across 100 timed runs in isolated child processes.
-  - On Apple Silicon, FP32 on MPS (**1,372.4 images/sec** total engine throughput at batch 64, 46.634 ms) substantially outperforms INT8 on CPU (**333.3 images/sec** total engine throughput at batch 64, 192.020 ms).
-  - INT8 speedups are contingent on operator fusion, backend implementation (QNNPACK), batch size, and target hardware architecture.
-
-#### 5. Sample-Size Limitation on Tail Latency (p95)
-- **Statistical Limitation**: The benchmark runner computes and reports 95th-percentile (p95) latency via linear interpolation across 10 repetitions per configuration. However, with a sample size of $N = 10$, this metric is sample-limited and cannot be interpreted as a high-confidence tail-latency or SLA guarantee.
-- **Future Formal Profiling**: Formal tail-latency characterization or SLA profiling should execute at least 30 to 100 repetitions under strict OS-level isolation.
-
-### REST Inference API (Task 4.5)
-
-A high-performance local REST API built with FastAPI that exposes the unified inference engine and artifact registry to client applications.
-
-#### Architecture & Design
-- **Dedicated Package**: Located in [`src/edge_vision/api/`](src/edge_vision/api/).
-- **Decoupled Application Factory**: `create_app()` instantiates and configures the FastAPI application independently of the server runner, enabling isolated unit testing without socket binding.
-- **Model Lifecycle & Thread Safety (`ModelManager`)**:
-  - Models are loaded into memory once and reused across requests.
-  - Model switching (`POST /models/load`) is atomic: the target model is loaded and verified in a temporary container before acquiring a thread lock (`threading.RLock`) to swap the resident engine pointer. If loading fails, the active model remains resident and unharmed.
-  - Concurrent inference and switching are serialized via reentrant locking, preventing race conditions or corrupted internal tensor states.
-- **Error Sanitization**: Error messages strip internal host filesystem paths and tracebacks to prevent information disclosure.
-- **Zero Duplicate Registries**: Directly leverages `ArtifactRegistry` and `InferenceEngine` abstractions.
-
-#### Server Launch
-
-```bash
-# Launch server bound to localhost on port 8000
 uvicorn edge_vision.api.main:app --host 127.0.0.1 --port 8000
-
-# Or run entrypoint directly
-python -m edge_vision.api.main --host 127.0.0.1 --port 8000
 ```
+Interactive Swagger documentation will be available at: `http://127.0.0.1:8000/docs`
 
-> [!NOTE]
-> The server binds strictly to localhost (`127.0.0.1`) by default for local development and demonstration. Interactive OpenAPI documentation is accessible at `http://127.0.0.1:8000/docs`.
-
-#### Endpoints & Example Curl Commands
-
-##### 1. Service Health (`GET /health`)
-Does not trigger expensive model loading.
-
+### 6. Running the React Dashboard
+In a separate terminal:
 ```bash
-curl -s http://127.0.0.1:8000/health
-```
-
-Example response (model loaded):
-```json
-{
-  "status": "healthy",
-  "model_loaded": true,
-  "model_name": "resnet18_cifar",
-  "precision": "fp32",
-  "device": "cpu",
-  "backend": "pytorch_eager"
-}
-```
-
-##### 2. List Supported Models (`GET /models`)
-Queries `ArtifactRegistry` without loading checkpoints.
-
-```bash
-curl -s http://127.0.0.1:8000/models
-```
-
-##### 3. Get Active Model Metadata (`GET /models/current`)
-
-```bash
-curl -s http://127.0.0.1:8000/models/current
-```
-
-##### 4. Load or Switch Model (`POST /models/load`)
-
-```bash
-# Load MobileNetV3-Small INT8 on CPU
-curl -s -X POST http://127.0.0.1:8000/models/load \
-  -H "Content-Type: application/json" \
-  -d '{"model_name": "mobilenet_v3_small_cifar", "precision": "int8", "device": "cpu"}'
-
-# Load ResNet-18 FP16 on Apple Silicon MPS
-curl -s -X POST http://127.0.0.1:8000/models/load \
-  -H "Content-Type: application/json" \
-  -d '{"model_name": "resnet18_cifar", "precision": "fp16", "device": "mps"}'
-```
-
-##### 5. Single Image Prediction (`POST /predict`)
-Uploads a single image via `multipart/form-data`. Supports optional `resize` and `top_k` query parameters.
-
-```bash
-# Single image inference with top-3 predictions and automatic resizing enabled
-curl -s -X POST "http://127.0.0.1:8000/predict?resize=true&top_k=3" \
-  -F "file=@path/to/sample.png"
-```
-
-Example response:
-```json
-{
-  "status": "success",
-  "filename": "sample.png",
-  "prediction": {
-    "predicted_class": "frog",
-    "class_index": 6,
-    "confidence": 0.8924,
-    "probabilities": { "airplane": 0.0012, "frog": 0.8924, "deer": 0.0541 },
-    "logits": [ -2.14, 5.82, 0.41, 0.12, -0.98, -1.22, 6.74, 1.25, -3.11, -0.55 ],
-    "top_k": [
-      { "rank": 1, "class_name": "frog", "confidence": 0.8924 },
-      { "rank": 2, "class_name": "deer", "confidence": 0.0541 },
-      { "rank": 3, "class_name": "bird", "confidence": 0.0215 }
-    ]
-  },
-  "timing_ms": {
-    "preprocess_ms": 1.245,
-    "forward_ms": 4.882,
-    "postprocess_ms": 0.154,
-    "total_ms": 6.281
-  },
-  "model_name": "mobilenet_v3_small_cifar",
-  "precision": "int8",
-  "device": "cpu"
-}
-```
-
-##### 6. Bounded Batch Prediction (`POST /predict/batch`)
-Uploads multiple images in one multipart request, strictly preserving input ordering.
-
-```bash
-curl -s -X POST "http://127.0.0.1:8000/predict/batch?resize=true&top_k=5" \
-  -F "files=@image1.png" \
-  -F "files=@image2.png" \
-  -F "files=@image3.png"
-```
-
-#### Upload Constraints & Safety Limits
-- **Maximum File Size**: 10 MB per image upload (`MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024`).
-- **Bounded Streaming Uploads**: File content is read asynchronously in 64 KB chunks (`CHUNK_SIZE_BYTES = 64 * 1024`). Reading halts immediately once the 10 MB ceiling is breached to prevent buffer accumulation.
-- **Maximum Spatial Dimensions**: Rejects images where either spatial dimension exceeds 2048 pixels (`MAX_IMAGE_DIMENSION = 2048`) or is non-positive before allocating complete raster arrays.
-- **Aggregate Batch Ceiling**: Bounded to 64 MB total across all files in a single batch request (`MAX_AGGREGATE_BATCH_BYTES = 64 * 1024 * 1024`), enforced per-chunk during ingestion.
-- **Bounded Batch Count**: Up to 64 images per batch request (`MAX_BATCH_SIZE = 64`). Requests exceeding 64 images are rejected with HTTP 400.
-- **Supported Formats**: PNG, JPG, JPEG, BMP, WEBP, TIFF.
-- **Resource Management**: File handles are closed asynchronously in `finally:` blocks. Image tensors and PIL objects are unreferenced immediately after forward execution to prevent heap bloat.
-- **Spooling Note**: Bounded chunk reading protects application heap memory against excessive allocations; however, Starlette's multipart parser spools requests before endpoint execution. Complete HTTP wire-level protection against oversized payloads requires an edge reverse proxy.
-
-### Key Operational Limitations
-1. **Device Boundaries**: INT8 post-training quantized artifacts execute exclusively on CPU via QNNPACK; Apple Silicon MPS does not support PyTorch quantized operators.
-2. **CPU FP16 Performance**: In PyTorch on ARM64 CPU, FP16 inference exhibits substantial empirical slowdown compared to FP32. For accelerated FP16 inference, Apple Silicon MPS is strongly recommended.
-3. **Platform Portability**: CPU benchmark results measured on Apple Silicon ARM64 reflect Apple M3 microarchitectural characteristics and do not generalize to x86 or server processors.
-
----
-
-## Frontend Research Dashboard (Milestone 5)
-
-An interactive, responsive research analytics dashboard built with React, Vite, TypeScript, Tailwind CSS, and Recharts.
-
-### Analytical Modules & Routes
-
-1. **Research Overview** (`/`): Executive research summary, precision variant matrix, baseline comparison, robustness severity curves, key empirical findings, and methodology limitations.
-2. **Live Inference Workstation** (`/inference`): Connects to the local FastAPI backend (`http://127.0.0.1:8000`) for model loading, single-image inference with preprocessing and top-$k$ prediction, and cross-model comparison.
-3. **Model Comparison Dashboard** (`/comparison`): Multi-architecture analytical comparison covering clean accuracy, corrupted reliability, CPU/MPS latency, memory footprints, and Pareto trade-offs.
-4. **Robustness Laboratory** (`/robustness`): Granular degradation inspection across 6 synthetic corruption categories and 5 severity levels, with severity-curve profiling and vulnerability matrices.
-5. **Efficiency Explorer** (`/efficiency`): Interactive deployment efficiency analysis with multi-metric normalization, storage compression, CPU vs. MPS scaling, and Pareto frontier optimization.
-
-### Running the Frontend
-
-```bash
-# 1. Navigate to frontend directory
 cd frontend
-
-# 2. Install dependencies
 npm install
-
-# 3. Launch development server (with hot module replacement)
 npm run dev
-# Accessible at: http://127.0.0.1:5173
+```
+Dashboard will be accessible at: `http://127.0.0.1:5173`
 
-# 4. Build for production (with route-level code splitting and manual vendor chunking)
+To build and preview the production bundle:
+```bash
 npm run build
-
-# 5. Preview production build locally
 npm run preview
 # Accessible at: http://127.0.0.1:4173
 ```
+
+---
+
+## 13. Repository Structure
+
+```text
+edge-vision-reliability-lab/
+├── configs/                  # Dataset split manifest, corruption parameters, training configs
+├── experiments/              # Serialized checkpoints (FP32, FP16, INT8) and raw microbenchmarks
+├── frontend/                 # React 18 + TypeScript analytical web dashboard
+│   ├── src/pages/            # 5 analytical routes (Overview, Workstation, Comparison, etc.)
+│   └── src/data/             # Canonical research JSON dataset for static dashboard views
+├── reports/                  # Markdown analysis reports and canonical CSV/JSON outputs
+│   └── experiment_results/   # Source-of-truth robustness summaries and benchmark records
+├── scripts/                  # Standalone execution scripts (benchmarking, evaluation, inspection)
+├── src/edge_vision/          # Core reusable Python package
+│   ├── api/                  # FastAPI service layer, Pydantic schemas, streaming upload reader
+│   ├── corruptions/          # Deterministic corruption engine and CRN seed derivation
+│   ├── data/                 # Deterministic dataset loaders and SHA-256 split management
+│   ├── evaluation/           # Robustness evaluation engines and metrics tracking
+│   ├── inference/            # Unified inference engine and artifact registry
+│   ├── models/               # 32x32 adapted ResNet-18 and MobileNetV3-Small
+│   └── quantization/         # FX Graph Mode PTQ and FP16 conversion pipelines
+└── tests/                    # 15 test suites containing 284 automated tests
+```
+
+---
+
+## 14. References
+
+- Hendrycks, D., & Dietterich, T. (2019). *Benchmarking Neural Network Robustness to Common Corruptions and Perturbations*. ICLR 2019. [arXiv:1903.12261](https://arxiv.org/abs/1903.12261).
+- Jacob, B., et al. (2018). *Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference*. CVPR 2018. [arXiv:1712.05877](https://arxiv.org/abs/1712.05877).
+- Howard, A., et al. (2019). *Searching for MobileNetV3*. ICCV 2019. [arXiv:1905.02244](https://arxiv.org/abs/1905.02244).
+- He, K., Zhang, X., Ren, S., & Sun, J. (2016). *Deep Residual Learning for Image Recognition*. CVPR 2016. [arXiv:1512.03385](https://arxiv.org/abs/1512.03385).
+- Krizhevsky, A. (2009). *Learning Multiple Layers of Features from Tiny Images*. Technical Report, University of Toronto.
